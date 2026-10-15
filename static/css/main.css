@@ -74,3 +74,42 @@ body {
   cursor: pointer;
   font: inherit;
 }
+
+.form-field {
+  margin-bottom: 1rem;
+}
+
+.form-field label,
+.form-field legend {
+  display: block;
+  font-weight: bold;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.choice {
+  display: block;
+  font-weight: normal;
+}
+
+.field-error {
+  color: #c33;
+}
+
+.code {
+  background: #f4f4f4;
+  padding: 0.5rem;
+  overflow-x: auto;
+}
+
+.skill-question {
+  margin-bottom: 1.5rem;
+}
+
+.topic-result-reason {
+  color: #666;
+}

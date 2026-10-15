@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "content",
     "accounts",
+    "diagnose",
 ]
 
 MIDDLEWARE = [

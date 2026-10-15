@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Skill check · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Skill check: {{ track.name }}</h1>
+{% if question_count %}
+<p>{{ question_count }} short question{{ question_count|pluralize }} to find out what you already know, so your plan can skip it.</p>
+<p>This isn't a test. If you're not sure, pick "I don't know yet". Guessing only puts topics you need to learn out of your plan.</p>
+<a class="button button-primary" href="{% url 'skill_check_questions' %}">Start</a>
+{% else %}
+<p>There are no skill check questions for {{ track.name }} yet, so your plan will include every topic.</p>
+<form method="post" action="{% url 'skill_check_questions' %}">
+  {% csrf_token %}
+  <button type="submit" class="button button-primary">Continue</button>
+</form>
+{% endif %}
+<p><a href="{% url 'about_you' %}">Change my answers about me</a></p>
+{% endblock %}

@@ -113,7 +113,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | Setup and deployment | Done (needs Render + Neon accounts connected) |
 | Content admin | Done. Sample Python content in `fixtures/content.json` |
 | Google login | Done |
-| Diagnose | Not started |
+| Diagnose | Done |
 | Learning Plan | Not started |
 | Lessons and quiz | Not started |
 | AI helper | Not started |

@@ -1,14 +1,14 @@
 from django.shortcuts import redirect, render
 
-from .models import LearnerProfile
+from .models import get_profile
 
 
 def home(request):
-    profile, _ = LearnerProfile.objects.get_or_create(user=request.user)
+    profile = get_profile(request.user)
     if not profile.onboarded:
         return redirect("welcome")
-    # Onboarded learners go to their plan once M7 lands.
-    return redirect("welcome")
+    # Onboarded learners go to their plan once M7 lands; until then, their result.
+    return redirect("result")
 
 
 def welcome(request):

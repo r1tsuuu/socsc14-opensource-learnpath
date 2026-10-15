@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}About you · LearnPath{% endblock %}
+
+{% block content %}
+<h1>About you</h1>
+<p>This helps us build a plan that fits your time.</p>
+
+<form class="about-you-form" method="post">
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+  {% for field in form %}
+    {% include "partials/form_field.html" %}
+  {% endfor %}
+  <button type="submit" class="button button-primary">Continue</button>
+</form>
+{% endblock %}

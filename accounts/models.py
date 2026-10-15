@@ -24,3 +24,8 @@ class LearnerProfile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user}"
+
+
+def get_profile(user):
+    profile, _ = LearnerProfile.objects.get_or_create(user=user)
+    return profile
