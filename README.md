@@ -114,7 +114,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | Content admin | Done. Sample Python content in `fixtures/content.json` |
 | Google login | Done |
 | Diagnose | Done |
-| Learning Plan | Not started |
+| Learning Plan | Done |
 | Lessons and quiz | Not started |
 | AI helper | Not started |
 | Reminder emails | Not started |

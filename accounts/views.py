@@ -7,8 +7,7 @@ def home(request):
     profile = get_profile(request.user)
     if not profile.onboarded:
         return redirect("welcome")
-    # Onboarded learners go to their plan once M7 lands; until then, their result.
-    return redirect("result")
+    return redirect("plan")
 
 
 def welcome(request):
