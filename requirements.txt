@@ -1,0 +1,9 @@
+Django==5.2.18
+django-allauth[socialaccount]==65.19.7
+django-environ==0.14.0
+dj-database-url==3.1.2
+psycopg[binary]==3.3.6
+whitenoise==6.12.0
+gunicorn==26.2.0
+openai==3.31.0
+requests==2.34.2

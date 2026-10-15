@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Your result · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Your result: {{ track.name }}</h1>
+
+<section class="result-section result-known">
+  <h2>You already know</h2>
+  {% if known %}
+  <ul class="topic-results">
+    {% for r in known %}
+    <li class="topic-result"><span class="topic-result-title">{{ r.topic.title }}</span> <span class="topic-result-reason">{{ r.reason }}</span></li>
+    {% endfor %}
+  </ul>
+  <p>We'll skip these in your plan.</p>
+  {% else %}
+  <p>Nothing yet, and that's fine. Your plan starts from the beginning.</p>
+  {% endif %}
+</section>
+
+<section class="result-section result-to-learn">
+  <h2>You'll learn</h2>
+  {% if to_learn %}
+  <ul class="topic-results">
+    {% for r in to_learn %}
+    <li class="topic-result"><span class="topic-result-title">{{ r.topic.title }}</span> <span class="topic-result-reason">{{ r.reason }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>You got everything right. You already know this whole track!</p>
+  {% endif %}
+</section>
+
+<p><a href="{% url 'skill_check' %}">Retake the skill check</a></p>
+{% endblock %}

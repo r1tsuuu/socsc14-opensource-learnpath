@@ -1,0 +1,1149 @@
+[
+  {
+    "model": "content.track",
+    "pk": 1,
+    "fields": {
+      "name": "Python",
+      "slug": "python",
+      "description": "A beginner-friendly language for scripts, data and automation.",
+      "order": 1,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.track",
+    "pk": 2,
+    "fields": {
+      "name": "JavaScript",
+      "slug": "javascript",
+      "description": "The language of the web browser.",
+      "order": 2,
+      "is_active": false
+    }
+  },
+  {
+    "model": "content.track",
+    "pk": 3,
+    "fields": {
+      "name": "HTML",
+      "slug": "html",
+      "description": "The structure of every web page.",
+      "order": 3,
+      "is_active": false
+    }
+  },
+  {
+    "model": "content.track",
+    "pk": 4,
+    "fields": {
+      "name": "CSS",
+      "slug": "css",
+      "description": "How web pages look.",
+      "order": 4,
+      "is_active": false
+    }
+  },
+  {
+    "model": "content.track",
+    "pk": 5,
+    "fields": {
+      "name": "Java",
+      "slug": "java",
+      "description": "A widely used language for apps and backend systems.",
+      "order": 5,
+      "is_active": false
+    }
+  },
+  {
+    "model": "content.track",
+    "pk": 6,
+    "fields": {
+      "name": "SQL",
+      "slug": "sql",
+      "description": "How to ask questions of a database.",
+      "order": 6,
+      "is_active": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 1,
+    "fields": {
+      "track": 1,
+      "title": "Variables and Data Types",
+      "slug": "python-variables-and-data-types",
+      "summary": "Store values in variables and learn the basic types: int, float, str and bool.",
+      "order": 1,
+      "estimated_minutes": 60,
+      "prerequisites": []
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 1,
+    "fields": {
+      "topic": 1,
+      "title": "An Informal Introduction to Python",
+      "url": "https://docs.python.org/3/tutorial/introduction.html",
+      "kind": "docs",
+      "estimated_minutes": 30,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 2,
+    "fields": {
+      "topic": 1,
+      "title": "Python Variables",
+      "url": "https://www.w3schools.com/python/python_variables.asp",
+      "kind": "interactive",
+      "estimated_minutes": 20,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 1,
+    "fields": {
+      "topic": 1,
+      "text": "A variable is a name pointing to a value. Use type(x) to see what kind of value x holds.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 2,
+    "fields": {
+      "topic": 1,
+      "text": "Text in quotes is a string, even if it looks like a number: \"5\" + \"5\" is \"55\", not 10.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 1,
+    "fields": {
+      "topic": 1,
+      "prompt": "What does this code print?",
+      "code_snippet": "print(len(\"hello\"))",
+      "choices": [
+        "4",
+        "5",
+        "6",
+        "Error"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 2,
+    "fields": {
+      "topic": 1,
+      "prompt": "What is the type of x after this line?",
+      "code_snippet": "x = 3.0",
+      "choices": [
+        "int",
+        "float",
+        "str",
+        "bool"
+      ],
+      "correct_index": 1,
+      "order": 2
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 1,
+    "fields": {
+      "topic": 1,
+      "prompt": "Write the function that shows the type of a value: ___(42)",
+      "accepted_answers": [
+        "type"
+      ],
+      "hint": "It's a built-in that tells you what kind of value you have.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 2,
+    "fields": {
+      "topic": 1,
+      "prompt": "Turn the text \"7\" into a whole number: ___(\"7\")",
+      "accepted_answers": [
+        "int"
+      ],
+      "hint": "The name of the whole-number type works as a function.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 3,
+    "fields": {
+      "topic": 1,
+      "prompt": "True and False are values of type ___",
+      "accepted_answers": [
+        "bool",
+        "boolean"
+      ],
+      "hint": "Short for Boolean.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 2,
+    "fields": {
+      "track": 1,
+      "title": "Input and Output",
+      "slug": "python-input-and-output",
+      "summary": "Read what the user types and show results with print and f-strings.",
+      "order": 2,
+      "estimated_minutes": 45,
+      "prerequisites": [
+        1
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 3,
+    "fields": {
+      "topic": 2,
+      "title": "Input and Output",
+      "url": "https://docs.python.org/3/tutorial/inputoutput.html",
+      "kind": "docs",
+      "estimated_minutes": 25,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 4,
+    "fields": {
+      "topic": 2,
+      "title": "Python User Input",
+      "url": "https://www.w3schools.com/python/python_user_input.asp",
+      "kind": "interactive",
+      "estimated_minutes": 15,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 3,
+    "fields": {
+      "topic": 2,
+      "text": "input() always gives you a string. Wrap it in int() or float() if you need a number.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 4,
+    "fields": {
+      "topic": 2,
+      "text": "f-strings make output easy: f\"Hi {name}!\" puts the value of name inside the text.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 3,
+    "fields": {
+      "topic": 2,
+      "prompt": "What type does input() return?",
+      "code_snippet": "age = input(\"Age? \")",
+      "choices": [
+        "int",
+        "str",
+        "float",
+        "It depends on what the user types"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 4,
+    "fields": {
+      "topic": 2,
+      "prompt": "Ask the user for their name: name = ___(\"Name? \")",
+      "accepted_answers": [
+        "input"
+      ],
+      "hint": "It's the opposite of print.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 5,
+    "fields": {
+      "topic": 2,
+      "prompt": "Show a value on the screen: ___(\"Hello\")",
+      "accepted_answers": [
+        "print"
+      ],
+      "hint": "You have used this since your first program.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 6,
+    "fields": {
+      "topic": 2,
+      "prompt": "Put a variable inside text with an f-string: f\"Hi ___name}\"",
+      "accepted_answers": [
+        "{"
+      ],
+      "hint": "Variables in f-strings go inside curly braces.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 3,
+    "fields": {
+      "track": 1,
+      "title": "Conditionals",
+      "slug": "python-conditionals",
+      "summary": "Make decisions with if, elif and else.",
+      "order": 3,
+      "estimated_minutes": 75,
+      "prerequisites": [
+        2
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 5,
+    "fields": {
+      "topic": 3,
+      "title": "if Statements",
+      "url": "https://docs.python.org/3/tutorial/controlflow.html#if-statements",
+      "kind": "docs",
+      "estimated_minutes": 15,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 6,
+    "fields": {
+      "topic": 3,
+      "title": "Python If...Else",
+      "url": "https://www.w3schools.com/python/python_conditions.asp",
+      "kind": "interactive",
+      "estimated_minutes": 25,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 5,
+    "fields": {
+      "topic": 3,
+      "text": "Use == to compare and = to assign. if x = 5: is an error; if x == 5: is a check.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 6,
+    "fields": {
+      "topic": 3,
+      "text": "Indentation is part of the syntax. Everything indented under if runs only when the condition is true.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 4,
+    "fields": {
+      "topic": 3,
+      "prompt": "What does this code print?",
+      "code_snippet": "x = 10\nif x > 5:\n    print(\"big\")\nelse:\n    print(\"small\")",
+      "choices": [
+        "big",
+        "small",
+        "Nothing",
+        "Error"
+      ],
+      "correct_index": 0,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 5,
+    "fields": {
+      "topic": 3,
+      "prompt": "Which keyword checks another condition after if?",
+      "code_snippet": "",
+      "choices": [
+        "else if",
+        "elif",
+        "elseif",
+        "then"
+      ],
+      "correct_index": 1,
+      "order": 2
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 7,
+    "fields": {
+      "topic": 3,
+      "prompt": "Check another condition: ___ x == 0:",
+      "accepted_answers": [
+        "elif"
+      ],
+      "hint": "Python shortens \"else if\" into one word.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 8,
+    "fields": {
+      "topic": 3,
+      "prompt": "Compare two values for equality: if a ___ b:",
+      "accepted_answers": [
+        "=="
+      ],
+      "hint": "One equals sign assigns; you need two.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 9,
+    "fields": {
+      "topic": 3,
+      "prompt": "Run code when no condition matched: ___:",
+      "accepted_answers": [
+        "else"
+      ],
+      "hint": "The catch-all branch.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 4,
+    "fields": {
+      "track": 1,
+      "title": "Loops",
+      "slug": "python-loops",
+      "summary": "Repeat code with for and while loops.",
+      "order": 4,
+      "estimated_minutes": 90,
+      "prerequisites": [
+        3
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 7,
+    "fields": {
+      "topic": 4,
+      "title": "for Statements and range()",
+      "url": "https://docs.python.org/3/tutorial/controlflow.html#for-statements",
+      "kind": "docs",
+      "estimated_minutes": 20,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 8,
+    "fields": {
+      "topic": 4,
+      "title": "Python For Loops",
+      "url": "https://www.w3schools.com/python/python_for_loops.asp",
+      "kind": "interactive",
+      "estimated_minutes": 25,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 7,
+    "fields": {
+      "topic": 4,
+      "text": "range(5) gives 0, 1, 2, 3, 4. It stops before the number you give it.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 8,
+    "fields": {
+      "topic": 4,
+      "text": "A while loop needs something inside it that eventually makes the condition false, or it runs forever.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 6,
+    "fields": {
+      "topic": 4,
+      "prompt": "How many times does this print?",
+      "code_snippet": "for i in range(3):\n    print(i)",
+      "choices": [
+        "2",
+        "3",
+        "4",
+        "Forever"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 7,
+    "fields": {
+      "topic": 4,
+      "prompt": "What is the last number printed?",
+      "code_snippet": "for i in range(1, 4):\n    print(i)",
+      "choices": [
+        "3",
+        "4",
+        "1",
+        "Error"
+      ],
+      "correct_index": 0,
+      "order": 2
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 10,
+    "fields": {
+      "topic": 4,
+      "prompt": "Loop five times: for i in ___(5):",
+      "accepted_answers": [
+        "range"
+      ],
+      "hint": "A built-in that makes a sequence of numbers.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 11,
+    "fields": {
+      "topic": 4,
+      "prompt": "Stop a loop early: ___",
+      "accepted_answers": [
+        "break"
+      ],
+      "hint": "It breaks out of the loop.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 12,
+    "fields": {
+      "topic": 4,
+      "prompt": "Loop while a condition is true: ___ count < 10:",
+      "accepted_answers": [
+        "while"
+      ],
+      "hint": "The other kind of loop besides for.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 5,
+    "fields": {
+      "track": 1,
+      "title": "Lists",
+      "slug": "python-lists",
+      "summary": "Keep many values in order, add to them and loop over them.",
+      "order": 5,
+      "estimated_minutes": 90,
+      "prerequisites": [
+        4
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 9,
+    "fields": {
+      "topic": 5,
+      "title": "More on Lists",
+      "url": "https://docs.python.org/3/tutorial/datastructures.html#more-on-lists",
+      "kind": "docs",
+      "estimated_minutes": 25,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 10,
+    "fields": {
+      "topic": 5,
+      "title": "Python Lists",
+      "url": "https://www.w3schools.com/python/python_lists.asp",
+      "kind": "interactive",
+      "estimated_minutes": 25,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 9,
+    "fields": {
+      "topic": 5,
+      "text": "List positions start at 0, so the first item is items[0] and the last is items[-1].",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 10,
+    "fields": {
+      "topic": 5,
+      "text": "append() changes the list in place and returns None, so don't write items = items.append(x).",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 8,
+    "fields": {
+      "topic": 5,
+      "prompt": "What does this code print?",
+      "code_snippet": "nums = [10, 20, 30]\nprint(nums[1])",
+      "choices": [
+        "10",
+        "20",
+        "30",
+        "Error"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 9,
+    "fields": {
+      "topic": 5,
+      "prompt": "What does len([1, 2, 3, 4]) return?",
+      "code_snippet": "",
+      "choices": [
+        "3",
+        "4",
+        "5",
+        "Error"
+      ],
+      "correct_index": 1,
+      "order": 2
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 13,
+    "fields": {
+      "topic": 5,
+      "prompt": "Add an item to the end of a list: items.___(5)",
+      "accepted_answers": [
+        "append"
+      ],
+      "hint": "A method that attaches to the end.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 14,
+    "fields": {
+      "topic": 5,
+      "prompt": "Get the last item: items[___]",
+      "accepted_answers": [
+        "-1"
+      ],
+      "hint": "Negative positions count from the end.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 15,
+    "fields": {
+      "topic": 5,
+      "prompt": "Count the items in a list: ___(items)",
+      "accepted_answers": [
+        "len"
+      ],
+      "hint": "Short for length.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 6,
+    "fields": {
+      "track": 1,
+      "title": "Functions",
+      "slug": "python-functions",
+      "summary": "Package code into reusable functions with parameters and return values.",
+      "order": 6,
+      "estimated_minutes": 120,
+      "prerequisites": [
+        5
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 11,
+    "fields": {
+      "topic": 6,
+      "title": "Defining Functions",
+      "url": "https://docs.python.org/3/tutorial/controlflow.html#defining-functions",
+      "kind": "docs",
+      "estimated_minutes": 30,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 12,
+    "fields": {
+      "topic": 6,
+      "title": "Python Functions",
+      "url": "https://www.w3schools.com/python/python_functions.asp",
+      "kind": "interactive",
+      "estimated_minutes": 30,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 11,
+    "fields": {
+      "topic": 6,
+      "text": "print shows a value; return hands it back to whoever called the function. They are not the same.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 12,
+    "fields": {
+      "topic": 6,
+      "text": "A function without a return statement returns None.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 10,
+    "fields": {
+      "topic": 6,
+      "prompt": "What does this code print?",
+      "code_snippet": "def add(a, b):\n    return a + b\n\nprint(add(2, 3))",
+      "choices": [
+        "23",
+        "5",
+        "None",
+        "Error"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 11,
+    "fields": {
+      "topic": 6,
+      "prompt": "What does this function return?",
+      "code_snippet": "def greet():\n    print(\"hi\")",
+      "choices": [
+        "\"hi\"",
+        "None",
+        "True",
+        "Error"
+      ],
+      "correct_index": 1,
+      "order": 2
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 16,
+    "fields": {
+      "topic": 6,
+      "prompt": "Start a function definition: ___ greet(name):",
+      "accepted_answers": [
+        "def"
+      ],
+      "hint": "Short for define.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 17,
+    "fields": {
+      "topic": 6,
+      "prompt": "Send a value back from a function: ___ total",
+      "accepted_answers": [
+        "return"
+      ],
+      "hint": "It ends the function and gives back a value.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 18,
+    "fields": {
+      "topic": 6,
+      "prompt": "A function with no return gives back ___",
+      "accepted_answers": [
+        "None"
+      ],
+      "hint": "Python's value for \"nothing\". Capital N.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 7,
+    "fields": {
+      "track": 1,
+      "title": "Dictionaries",
+      "slug": "python-dictionaries",
+      "summary": "Store values by key, look them up and loop over them.",
+      "order": 7,
+      "estimated_minutes": 90,
+      "prerequisites": [
+        6
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 13,
+    "fields": {
+      "topic": 7,
+      "title": "Dictionaries",
+      "url": "https://docs.python.org/3/tutorial/datastructures.html#dictionaries",
+      "kind": "docs",
+      "estimated_minutes": 20,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 14,
+    "fields": {
+      "topic": 7,
+      "title": "Python Dictionaries",
+      "url": "https://www.w3schools.com/python/python_dictionaries.asp",
+      "kind": "interactive",
+      "estimated_minutes": 30,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 13,
+    "fields": {
+      "topic": 7,
+      "text": "Use d.get(key) when the key might be missing; d[key] raises KeyError instead.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 14,
+    "fields": {
+      "topic": 7,
+      "text": "Loop over d.items() to get each key and value together.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 12,
+    "fields": {
+      "topic": 7,
+      "prompt": "What does this code print?",
+      "code_snippet": "ages = {\"ana\": 20, \"ben\": 22}\nprint(ages[\"ben\"])",
+      "choices": [
+        "20",
+        "22",
+        "ben",
+        "Error"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 19,
+    "fields": {
+      "topic": 7,
+      "prompt": "Get each key and value in a loop: for k, v in d.___():",
+      "accepted_answers": [
+        "items"
+      ],
+      "hint": "It gives pairs.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 20,
+    "fields": {
+      "topic": 7,
+      "prompt": "Look up a key without an error if it's missing: d.___(\"name\")",
+      "accepted_answers": [
+        "get"
+      ],
+      "hint": "A safe way to read a value.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 21,
+    "fields": {
+      "topic": 7,
+      "prompt": "Check if a key exists: if \"name\" ___ d:",
+      "accepted_answers": [
+        "in"
+      ],
+      "hint": "The same word you use in for loops.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.topic",
+    "pk": 8,
+    "fields": {
+      "track": 1,
+      "title": "Working with Files and Handling Exceptions",
+      "slug": "python-files-and-exceptions",
+      "summary": "Read and write files, and handle errors with try and except.",
+      "order": 8,
+      "estimated_minutes": 120,
+      "prerequisites": [
+        7
+      ]
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 15,
+    "fields": {
+      "topic": 8,
+      "title": "Errors and Exceptions",
+      "url": "https://docs.python.org/3/tutorial/errors.html",
+      "kind": "docs",
+      "estimated_minutes": 30,
+      "order": 1,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.resource",
+    "pk": 16,
+    "fields": {
+      "topic": 8,
+      "title": "Python File Handling",
+      "url": "https://www.w3schools.com/python/python_file_handling.asp",
+      "kind": "interactive",
+      "estimated_minutes": 30,
+      "order": 2,
+      "last_checked": null,
+      "is_active": true
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 15,
+    "fields": {
+      "topic": 8,
+      "text": "Open files with with open(...) as f: so Python closes them for you, even if an error happens.",
+      "order": 1
+    }
+  },
+  {
+    "model": "content.tip",
+    "pk": 16,
+    "fields": {
+      "topic": 8,
+      "text": "Catch specific errors like ValueError instead of a bare except:, so real bugs aren't hidden.",
+      "order": 2
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 13,
+    "fields": {
+      "topic": 8,
+      "prompt": "What happens when this runs?",
+      "code_snippet": "int(\"abc\")",
+      "choices": [
+        "Returns 0",
+        "Raises ValueError",
+        "Returns \"abc\"",
+        "Returns None"
+      ],
+      "correct_index": 1,
+      "order": 1
+    }
+  },
+  {
+    "model": "content.skillquestion",
+    "pk": 14,
+    "fields": {
+      "topic": 8,
+      "prompt": "Which mode opens a file for reading?",
+      "code_snippet": "open(\"notes.txt\", ?)",
+      "choices": [
+        "\"w\"",
+        "\"r\"",
+        "\"a\"",
+        "\"x\""
+      ],
+      "correct_index": 1,
+      "order": 2
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 22,
+    "fields": {
+      "topic": 8,
+      "prompt": "Start a block that might fail: ___:",
+      "accepted_answers": [
+        "try"
+      ],
+      "hint": "You try something, then catch errors.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 23,
+    "fields": {
+      "topic": 8,
+      "prompt": "Handle the error: ___ ValueError:",
+      "accepted_answers": [
+        "except"
+      ],
+      "hint": "Python's word for catch.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.quizitem",
+    "pk": 24,
+    "fields": {
+      "topic": 8,
+      "prompt": "Open a file so it closes itself: ___ open(\"a.txt\") as f:",
+      "accepted_answers": [
+        "with"
+      ],
+      "hint": "A context manager keyword.",
+      "case_sensitive": false
+    }
+  },
+  {
+    "model": "content.setupstep",
+    "pk": 1,
+    "fields": {
+      "track": 1,
+      "order": 1,
+      "title": "Install Python",
+      "body": "Download Python 3 from python.org and run the installer. On Windows, tick \"Add python.exe to PATH\" before clicking Install.",
+      "link": "https://www.python.org/downloads/"
+    }
+  },
+  {
+    "model": "content.setupstep",
+    "pk": 2,
+    "fields": {
+      "track": 1,
+      "order": 2,
+      "title": "Check that it works",
+      "body": "Open a terminal (Command Prompt on Windows, Terminal on Mac) and type python --version (or python3 --version on Mac). You should see a version number.",
+      "link": "https://docs.python.org/3/using/index.html"
+    }
+  },
+  {
+    "model": "content.setupstep",
+    "pk": 3,
+    "fields": {
+      "track": 1,
+      "order": 3,
+      "title": "Install a code editor",
+      "body": "Install Visual Studio Code and add the Python extension from the Extensions panel.",
+      "link": "https://code.visualstudio.com/docs/python/python-tutorial"
+    }
+  },
+  {
+    "model": "content.setupstep",
+    "pk": 4,
+    "fields": {
+      "track": 1,
+      "order": 4,
+      "title": "Run your first program",
+      "body": "Make a file called hello.py containing print(\"Hello!\") and run it with python hello.py.",
+      "link": ""
+    }
+  }
+]

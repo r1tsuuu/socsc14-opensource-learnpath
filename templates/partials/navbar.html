@@ -1,0 +1,11 @@
+<header class="navbar">
+  <a class="navbar-brand" href="{% url 'home' %}">LearnPath</a>
+  {% if user.is_authenticated %}
+  <nav class="navbar-links">
+    <form class="navbar-logout" method="post" action="{% url 'account_logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="button-link">Log out</button>
+    </form>
+  </nav>
+  {% endif %}
+</header>

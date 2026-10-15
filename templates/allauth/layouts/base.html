@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% comment %}Makes allauth's own pages (logout, login errors) use the site layout. They fill the `content` block.{% endcomment %}
+
+{% block title %}{% block head_title %}{% endblock %} · LearnPath{% endblock %}
