@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz result: {{ topic.title }} · LearnPath{% endblock %}
+
+{% block content %}
+<p class="breadcrumb"><a href="{% url 'lesson' topic.slug %}">{{ topic.title }}</a> / Quiz result</p>
+<h1>{% if result.passed %}You passed!{% else %}Not yet{% endif %}</h1>
+<p class="quiz-score">{{ result.correct }} of {{ result.total }} correct ({{ result.percent }}%). You need {{ pass_percent }}% to pass.</p>
+
+<ol class="quiz-feedback">
+  {% for r in result.items %}
+  <li class="quiz-feedback-item {% if r.correct %}quiz-correct{% else %}quiz-wrong{% endif %}">
+    <code class="quiz-prompt">{{ r.item.prompt }}</code>
+    <p>Your answer: <code>{{ r.answer|default:"(blank)" }}</code> · {% if r.correct %}Correct{% else %}Not quite{% endif %}</p>
+    {% if not r.correct and r.item.hint %}<p class="quiz-hint">Hint: {{ r.item.hint }}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+
+{% if result.passed %}
+<a class="button button-primary" href="{% url 'plan' %}">Back to my plan</a>
+{% else %}
+<a class="button button-primary" href="{% url 'quiz' topic.slug %}">Try again</a>
+<p><a href="{% url 'lesson' topic.slug %}">Review the lesson</a></p>
+{% endif %}
+{% endblock %}

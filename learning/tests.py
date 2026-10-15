@@ -6,10 +6,11 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import get_profile
-from content.models import Topic, Track
+from content.models import QuizItem, Topic, Track
 from diagnose.models import TopicMastery
 
-from .models import LearningPlan, PlanItem
+from .grading import grade, is_correct
+from .models import LearningPlan, PlanItem, QuizAttempt
 from .planner import assign_weeks, build_plan, order_topics
 
 
@@ -204,3 +205,84 @@ class LessonViewTests(PlanTestMixin, TestCase):
 
     def test_plan_links_to_lessons(self):
         self.assertContains(self.client.get(reverse("plan")), reverse("lesson", args=[self.topics[0].slug]))
+
+
+class GradingRuleTests(TestCase):
+    def item(self, answers, case_sensitive=False, pk=1):
+        return SimpleNamespace(pk=pk, accepted_answers=answers, case_sensitive=case_sensitive)
+
+    def test_ignores_spaces_and_case(self):
+        self.assertTrue(is_correct("  RANGE ", self.item(["range"])))
+        self.assertTrue(is_correct("for   i  in", self.item(["for i in"])))
+        self.assertTrue(is_correct("range", self.item(["  Range "])))
+
+    def test_respects_case_sensitive(self):
+        self.assertFalse(is_correct("none", self.item(["None"], case_sensitive=True)))
+        self.assertTrue(is_correct(" None ", self.item(["None"], case_sensitive=True)))
+
+    def test_accepts_any_listed_answer(self):
+        item = self.item(["bool", "boolean"])
+        self.assertTrue(is_correct("Boolean", item))
+        self.assertTrue(is_correct("bool", item))
+        self.assertFalse(is_correct("int", item))
+
+    def test_blank_is_wrong(self):
+        self.assertFalse(is_correct("", self.item(["range"])))
+
+    def test_pass_at_70_percent(self):
+        items = [self.item(["a"], pk=i) for i in range(1, 11)]
+        seven = {i: "a" for i in range(1, 8)}
+        six = {i: "a" for i in range(1, 7)}
+        self.assertTrue(grade(items, seven).passed)
+        self.assertFalse(grade(items, six).passed)
+
+    def test_two_of_three_does_not_pass(self):
+        items = [self.item(["a"], pk=i) for i in range(1, 4)]
+        result = grade(items, {1: "a", 2: "a", 3: "b"})
+        self.assertEqual(result.percent, 67)
+        self.assertFalse(result.passed)
+
+
+class QuizViewTests(PlanTestMixin, TestCase):
+    def setUp(self):
+        self.make_learner()
+        self.client.force_login(self.user)
+        self.plan = build_plan(self.profile)
+        self.topic = self.topics[0]
+        self.a = QuizItem.objects.create(topic=self.topic, prompt="for i in ___(5):", accepted_answers=["range"], hint="A built-in.")
+        self.b = QuizItem.objects.create(topic=self.topic, prompt="___ x == 0:", accepted_answers=["elif"])
+
+    def submit(self, a, b):
+        return self.client.post(reverse("quiz", args=[self.topic.slug]), {f"item_{self.a.pk}": a, f"item_{self.b.pk}": b})
+
+    def test_passing_marks_item_done_and_topic_known(self):
+        response = self.submit(" Range", "ELIF")
+        self.assertRedirects(response, reverse("quiz_result", args=[self.topic.slug]))
+        item = self.plan.items.get(topic=self.topic)
+        self.assertEqual(item.status, "done")
+        self.assertIsNotNone(item.completed_at)
+        mastery = TopicMastery.objects.get(learner=self.profile, topic=self.topic)
+        self.assertTrue(mastery.known)
+        self.assertEqual(mastery.source, "quiz")
+        self.assertContains(self.client.get(reverse("plan")), "25% done")
+
+    def test_failing_shows_hint_and_allows_retry(self):
+        self.submit("list", "elif")
+        self.assertEqual(self.plan.items.get(topic=self.topic).status, "todo")
+        result = self.client.get(reverse("quiz_result", args=[self.topic.slug]))
+        self.assertContains(result, "1 of 2 correct")
+        self.assertContains(result, "Hint: A built-in.")
+        self.assertNotContains(result, "range")
+        self.submit("range", "elif")
+        self.assertContains(self.client.get(reverse("quiz_result", args=[self.topic.slug])), "2 of 2 correct")
+        self.assertEqual(QuizAttempt.objects.filter(learner=self.profile).count(), 4)
+
+    def test_result_before_any_attempt_goes_to_quiz(self):
+        self.assertRedirects(self.client.get(reverse("quiz_result", args=[self.topic.slug])), reverse("quiz", args=[self.topic.slug]))
+
+    def test_lesson_links_to_quiz(self):
+        self.assertContains(self.client.get(reverse("lesson", args=[self.topic.slug])), reverse("quiz", args=[self.topic.slug]))
+
+    def test_topic_without_quiz(self):
+        response = self.client.get(reverse("quiz", args=[self.topics[1].slug]))
+        self.assertContains(response, "no quiz for this topic yet")

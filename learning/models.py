@@ -52,3 +52,19 @@ class PlanItem(models.Model):
 
     def __str__(self):
         return f"Week {self.week}: {self.topic.title} ({self.get_status_display()})"
+
+
+class QuizAttempt(models.Model):
+    learner = models.ForeignKey(
+        "accounts.LearnerProfile", on_delete=models.CASCADE, related_name="quiz_attempts"
+    )
+    quiz_item = models.ForeignKey("content.QuizItem", on_delete=models.CASCADE, related_name="+")
+    answer = models.CharField(max_length=500, blank=True)
+    is_correct = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.learner.user} · {self.quiz_item} · {'right' if self.is_correct else 'wrong'}"

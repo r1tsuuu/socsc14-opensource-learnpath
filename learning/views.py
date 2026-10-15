@@ -8,6 +8,8 @@ from django.views.decorators.http import require_POST
 from accounts.models import get_profile
 from content.models import Resource, Topic, Track
 
+from .forms import QuizForm
+from .grading import PASS_PERCENT, latest_result, submit_quiz
 from .models import PlanItem
 from .planner import active_plan, build_plan, plan_item_for_topic, set_item_status, start_item
 
@@ -72,8 +74,12 @@ def setup_guide(request, track):
     )
 
 
+def _active_topic(slug):
+    return get_object_or_404(Topic.objects.select_related("track"), slug=slug, track__is_active=True)
+
+
 def lesson(request, topic):
-    topic = get_object_or_404(Topic.objects.select_related("track"), slug=topic, track__is_active=True)
+    topic = _active_topic(topic)
     item = plan_item_for_topic(get_profile(request.user), topic)
     start_item(item)
     return render(
@@ -85,5 +91,36 @@ def lesson(request, topic):
             "resources": topic.resources.filter(is_active=True),
             "tips": topic.tips.all(),
             "prerequisites": topic.prerequisites.all(),
+            "has_quiz": topic.quiz_items.exists(),
         },
+    )
+
+
+def quiz(request, topic):
+    topic = _active_topic(topic)
+    items = list(topic.quiz_items.all())
+    form = QuizForm(request.POST or None, items=items)
+    if request.method == "POST" and items and form.is_valid():
+        result = submit_quiz(get_profile(request.user), topic, items, form.answers())
+        if result.passed:
+            messages.success(request, f"You passed with {result.percent}%! {topic.title} is done.")
+        else:
+            messages.error(request, f"You got {result.percent}%. You need {PASS_PERCENT}% to pass. Try again!")
+        return redirect("quiz_result", topic=topic.slug)
+    return render(
+        request,
+        "learning/quiz.html",
+        {"topic": topic, "form": form, "pass_percent": PASS_PERCENT},
+    )
+
+
+def quiz_result(request, topic):
+    topic = _active_topic(topic)
+    result = latest_result(get_profile(request.user), list(topic.quiz_items.all()))
+    if result is None:
+        return redirect("quiz", topic=topic.slug)
+    return render(
+        request,
+        "learning/quiz_result.html",
+        {"topic": topic, "result": result, "pass_percent": PASS_PERCENT},
     )

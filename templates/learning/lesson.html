@@ -36,6 +36,14 @@
 </section>
 {% endif %}
 
+{% if has_quiz %}
+<section class="lesson-quiz">
+  <h2>Check yourself</h2>
+  <p>Done with the links? Take the short quiz. Passing marks this topic done.</p>
+  <a class="button button-primary" href="{% url 'quiz' topic.slug %}">Take the quiz</a>
+</section>
+{% endif %}
+
 {% if item %}
 <form class="lesson-actions" method="post" action="{% url 'plan_item_status' item.pk %}">
   {% csrf_token %}

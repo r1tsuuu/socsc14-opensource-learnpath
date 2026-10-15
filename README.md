@@ -115,15 +115,18 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | Google login | Done |
 | Diagnose | Done |
 | Learning Plan | Done |
-| Lessons and quiz | Lesson and Setup Guide pages done; quiz in progress |
-| AI helper | Not started |
+| Lessons and quiz | Done |
+| AI helper | Service done: `POST /help/ask/` plus a staff test page at `/help/test/`. The help panel on the plan is M8 |
 | Reminder emails | Not started |
+| Finish screen and Settings | Not started (M13) |
 
 Update this table as parts are finished, and list known bugs below.
 
 ### Known issues
 
-None yet.
+- Quizzes pass at 70%. With 2 or 3 items per topic that means every answer must be right (2 of 3 is 67%). Write 4 or more items for a topic if one mistake should still pass.
+- Passing the quiz on the last topic doesn't lead anywhere special yet; the Finish screen is part of M13.
+- Marking a topic done by hand records it as known (source "manual"), so a rebuilt plan skips it. Undo reverses that.
 
 ## Team
 

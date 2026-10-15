@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}AI helper test · LearnPath{% endblock %}
+
+{% block content %}
+<h1>AI helper test</h1>
+<p>Staff only. Sends the same request the help panel will send to <code>{% url 'help_ask' %}</code>.</p>
+
+<form id="help-test-form" class="help-test-form" data-url="{% url 'help_ask' %}">
+  {% csrf_token %}
+  <div class="form-field">
+    <label for="help-topic">Topic</label>
+    <select id="help-topic" name="topic">
+      {% for topic in topics %}<option value="{{ topic.slug }}">{{ topic }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-field">
+    <label for="help-level">Hint level</label>
+    <select id="help-level" name="hint_level">
+      <option value="1">1 · guiding question</option>
+      <option value="2">2 · the concept</option>
+      <option value="3">3 · similar example</option>
+    </select>
+  </div>
+  <div class="form-field">
+    <label for="help-question">Question</label>
+    <textarea id="help-question" name="question" rows="3" maxlength="500"></textarea>
+  </div>
+  <button type="submit" class="button button-primary">Ask</button>
+</form>
+
+<pre id="help-test-output" class="code" aria-live="polite"></pre>
+<script src="{% static 'js/help_test.js' %}"></script>
+{% endblock %}
