@@ -9,8 +9,8 @@ Built by Group 5 (ST2A) with CompSAt at Ateneo de Manila University. Open source
 ## How it works
 
 1. **Sign in with Google.** No passwords to manage.
-2. **Diagnose.** The learner picks a track, says how much time they have, and answers a few questions. Topics they already know get skipped.
-3. **Plan.** The app orders the remaining topics so prerequisites come first and spreads them across weeks based on the learner's available hours.
+2. **Tell us your goal.** The learner types what they want in their own words ("I want to automate my org's attendance"). An AI guide asks a few follow-up questions (experience, hours per week, track, project idea), then gives a quick check only on the topics they say they already know. If the AI is off or busy, a short form and the full skill check are used instead.
+3. **Plan.** The AI picks the topics the goal needs, only from our curated list, with a reason for each. The app adds missing prerequisites, orders them, and spreads them across weeks. Every plan ends with a small project tied to the learner's goal (a template project when the AI is off).
 4. **Learn.** Each topic links to vetted free resources, with tips from our team and a short fill-in-the-blank quiz.
 5. **Get help.** The AI helper gives hints, never full answers, using only that topic's content. When the daily AI limit runs out, learners still get the tips and links.
 
@@ -55,7 +55,8 @@ Open http://localhost:8000 for the app and http://localhost:8000/admin for conte
 | `DATABASE_URL` | Production database. Leave blank locally to use SQLite |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google login |
 | `GROQ_API_KEY`, `GROQ_MODEL`, `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_MODEL` | AI helper (optional locally) |
-| `AI_DAILY_LIMIT` | AI messages per learner per day |
+| `AI_DAILY_LIMIT` | AI hint messages per learner per day |
+| `GROQ_PLAN_MODEL`, `AI_INTAKE_DAILY_LIMIT` | Model for the AI guide and plans; plan conversations per learner per day (default 2) |
 
 Ask a teammate for shared keys. Never commit `.env`.
 
@@ -130,7 +131,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | Setup and deployment | Done. Live on Render with Neon Postgres |
 | Content admin | Done. Sample Python content in `fixtures/content.json` |
 | Google login | Done |
-| Diagnose | Done |
+| Diagnose | Done. AI guide chat at `/start/`, with the form at `/about/` as fallback |
 | Learning Plan | Done |
 | Lessons and quiz | Done |
 | AI helper | Service done: `POST /help/ask/` plus a staff test page at `/help/test/`. The help panel on the plan is M8 |

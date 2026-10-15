@@ -46,12 +46,33 @@ class PlanItem(models.Model):
     week = models.PositiveIntegerField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.TODO)
     completed_at = models.DateTimeField(null=True, blank=True)
+    reason = models.CharField(
+        max_length=300, blank=True, help_text="Why this topic is in the plan (from the AI intake)."
+    )
 
     class Meta:
         ordering = ["plan", "order"]
 
     def __str__(self):
         return f"Week {self.week}: {self.topic.title} ({self.get_status_display()})"
+
+
+class PlanProject(models.Model):
+    """A small culminating project tied to the learner's goal and plan."""
+
+    class Source(models.TextChoices):
+        AI = "ai", "AI"
+        TEMPLATE = "template", "Template"
+
+    plan = models.OneToOneField(LearningPlan, on_delete=models.CASCADE, related_name="project")
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    milestones = models.JSONField(default=list, help_text='List of {"week": n, "text": "..."}.')
+    done_when = models.JSONField(default=list, help_text="Checklist of strings.")
+    source = models.CharField(max_length=20, choices=Source.choices, default=Source.TEMPLATE)
+
+    def __str__(self):
+        return self.title
 
 
 class QuizAttempt(models.Model):

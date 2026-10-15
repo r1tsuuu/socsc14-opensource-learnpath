@@ -15,6 +15,7 @@
     <li class="plan-item plan-item-{{ item.status }}">
       <h3 class="plan-item-title"><a href="{% url 'lesson' item.topic.slug %}">{{ item.topic.title }}</a></h3>
       <p class="plan-item-meta">{{ item.topic.estimated_minutes }} min · {{ item.get_status_display }}</p>
+      {% if item.reason %}<p class="plan-item-reason">Why: {{ item.reason }}</p>{% endif %}
       {% if item.topic.summary %}<p class="plan-item-summary">{{ item.topic.summary }}</p>{% endif %}
 
       {% if item.topic.resources.all %}
@@ -48,5 +49,20 @@
 <p>You already know every topic in this track. Nice work!</p>
 {% endfor %}
 
-<p><a href="{% url 'skill_check' %}">Retake the skill check</a> and rebuild your plan.</p>
+{% if project %}
+<section class="plan-project">
+  <h2>Your project: {{ project.title }}</h2>
+  <p class="plan-project-description">{{ project.description|linebreaksbr }}</p>
+  <h3>Steps</h3>
+  <ol class="plan-project-milestones">
+    {% for milestone in project.milestones %}<li><span class="milestone-week">Week {{ milestone.week }}:</span> {{ milestone.text }}</li>{% endfor %}
+  </ol>
+  <h3>Done when</h3>
+  <ul class="plan-project-checks">
+    {% for check in project.done_when %}<li>{{ check }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<p><a href="{% url 'intake' %}">Plan again with the AI guide</a> or <a href="{% url 'skill_check' %}">retake the skill check</a>.</p>
 {% endblock %}

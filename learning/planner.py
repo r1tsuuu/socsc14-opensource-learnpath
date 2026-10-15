@@ -68,28 +68,51 @@ def assign_weeks(topics, hours_per_week):
     return weeks
 
 
+def with_prerequisites(selected_ids, prerequisites, skip_ids):
+    """Add every prerequisite (and theirs) of the selected topics, except skipped ones."""
+    result = set(selected_ids)
+    stack = list(selected_ids)
+    while stack:
+        for prereq in prerequisites.get(stack.pop(), ()):
+            if prereq not in result and prereq not in skip_ids:
+                result.add(prereq)
+                stack.append(prereq)
+    return result
+
+
 @transaction.atomic
-def build_plan(profile):
-    """Replace the learner's active plan for their track with a fresh one."""
+def build_plan(profile, selected_topic_ids=None, reasons=None):
+    """Replace the learner's active plan for their track with a fresh one.
+
+    With `selected_topic_ids` (from the AI intake), the plan holds only those topics
+    plus any prerequisites they need; otherwise every topic the learner doesn't know.
+    `reasons` maps topic id to a one-line reason shown on the plan.
+    """
     track = profile.track
     known = set(
         TopicMastery.objects.filter(learner=profile, topic__track=track, known=True)
         .values_list("topic_id", flat=True)
     )
-    topics = list(Topic.objects.filter(track=track).exclude(pk__in=known))
     prerequisites = {}
     for topic_id, prereq_id in Topic.prerequisites.through.objects.filter(
         from_topic__track=track
     ).values_list("from_topic_id", "to_topic_id"):
         prerequisites.setdefault(topic_id, set()).add(prereq_id)
 
+    topics = Topic.objects.filter(track=track).exclude(pk__in=known)
+    if selected_topic_ids:
+        wanted = with_prerequisites(set(selected_topic_ids) - known, prerequisites, known)
+        topics = topics.filter(pk__in=wanted)
+    topics = list(topics)
+
     ordered = order_topics(topics, prerequisites)
     weeks = assign_weeks(ordered, profile.hours_per_week)
+    reasons = reasons or {}
 
     LearningPlan.objects.filter(learner=profile, track=track, is_active=True).update(is_active=False)
     plan = LearningPlan.objects.create(learner=profile, track=track)
     PlanItem.objects.bulk_create(
-        PlanItem(plan=plan, topic=topic, order=i, week=week)
+        PlanItem(plan=plan, topic=topic, order=i, week=week, reason=reasons.get(topic.pk, "")[:300])
         for i, (topic, week) in enumerate(zip(ordered, weeks), 1)
     )
     return plan

@@ -94,7 +94,7 @@ class ServiceTests(AssistantTestMixin, TestCase):
         ask(self.learner, self.request())
         usage = AIUsage.objects.get(learner=self.learner)
         self.assertEqual(usage.messages_used, 1)
-        self.assertEqual({f.name for f in AIUsage._meta.fields}, {"id", "learner", "date", "messages_used"})
+        self.assertEqual({f.name for f in AIUsage._meta.fields}, {"id", "learner", "date", "messages_used", "intakes_used"})
 
 
 @override_settings(**AI_OFF)

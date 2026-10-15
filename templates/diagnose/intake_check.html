@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Quick check · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Quick check: {{ track.name }}</h1>
+
+<form class="skill-check-form" method="post">
+  {% csrf_token %}
+  {% if has_questions %}
+  <p>You said you already know some of this. Answer these so your plan can skip it. If you're not sure, pick "I don't know yet".</p>
+  {% if form.errors %}<p class="field-error">Answer every question. "I don't know yet" is a fine answer.</p>{% endif %}
+  {% include "partials/skill_questions.html" %}
+  <button type="submit" class="button button-primary">Build my plan</button>
+  {% else %}
+  <p>You're starting fresh, so there's nothing to check. Your plan will start from the beginning.</p>
+  <button type="submit" class="button button-primary">Build my plan</button>
+  {% endif %}
+</form>
+<p class="chat-note">Building your plan can take a few seconds.</p>
+{% endblock %}

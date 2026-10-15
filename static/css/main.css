@@ -169,3 +169,51 @@ fieldset {
 
 .quiz-correct { border-left: 4px solid #3a3; padding-left: 0.5rem; }
 .quiz-wrong { border-left: 4px solid #c33; padding-left: 0.5rem; }
+
+.chat {
+  list-style: none;
+  padding: 0;
+}
+
+.chat-message {
+  border: 1px solid #ddd;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.chat-user {
+  margin-left: 2rem;
+  background: #f4f4f4;
+}
+
+.chat-author {
+  font-weight: bold;
+  font-size: 0.875rem;
+}
+
+.chat-text {
+  margin: 0.25rem 0 0;
+}
+
+.chat-form textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.chat-label {
+  font-weight: bold;
+}
+
+.chat-note,
+.plan-item-reason {
+  color: #666;
+}
+
+.plan-project {
+  border: 2px solid #1a1a1a;
+  padding: 0.75rem 1rem;
+  margin: 1.5rem 0;
+}

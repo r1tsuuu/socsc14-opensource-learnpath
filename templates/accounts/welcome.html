@@ -5,8 +5,9 @@
 {% block content %}
 <section class="welcome">
   <h1>Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}!</h1>
-  <p>We'll ask a few questions about you, check what you already know, and build a learning plan from free resources.</p>
-  <p>It takes about 10 minutes.</p>
-  <a class="button button-primary" href="{% url 'about_you' %}">Get started</a>
+  <p>Tell us what you want to learn and why. We'll ask a few questions, check what you already know, and build a learning plan from free resources, with a small project made for your goal.</p>
+  <p>It takes about 5 minutes.</p>
+  <a class="button button-primary" href="{% url 'intake' %}">Get started</a>
+  <p><a href="{% url 'about_you' %}">Prefer a short form instead?</a></p>
 </section>
 {% endblock %}
