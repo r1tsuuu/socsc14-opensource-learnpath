@@ -6,10 +6,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from accounts.models import get_profile
-from content.models import Resource
+from content.models import Resource, Topic, Track
 
 from .models import PlanItem
-from .planner import active_plan, build_plan, set_item_status
+from .planner import active_plan, build_plan, plan_item_for_topic, set_item_status, start_item
 
 
 @require_POST
@@ -61,3 +61,29 @@ def plan_item_status(request, item_id):
     set_item_status(item, status)
     messages.success(request, f"{item.topic.title}: {item.get_status_display().lower()}.")
     return redirect("plan")
+
+
+def setup_guide(request, track):
+    track = get_object_or_404(Track, slug=track, is_active=True)
+    return render(
+        request,
+        "learning/setup_guide.html",
+        {"track": track, "steps": track.setup_steps.all()},
+    )
+
+
+def lesson(request, topic):
+    topic = get_object_or_404(Topic.objects.select_related("track"), slug=topic, track__is_active=True)
+    item = plan_item_for_topic(get_profile(request.user), topic)
+    start_item(item)
+    return render(
+        request,
+        "learning/lesson.html",
+        {
+            "topic": topic,
+            "item": item,
+            "resources": topic.resources.filter(is_active=True),
+            "tips": topic.tips.all(),
+            "prerequisites": topic.prerequisites.all(),
+        },
+    )

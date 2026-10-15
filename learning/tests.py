@@ -160,3 +160,47 @@ class PlanViewTests(PlanTestMixin, TestCase):
         self.client.force_login(other)
         response = self.client.post(reverse("plan_item_status", args=[item.pk]), {"status": "done"})
         self.assertEqual(response.status_code, 404)
+
+
+class LessonViewTests(PlanTestMixin, TestCase):
+    def setUp(self):
+        self.make_learner()
+        self.client.force_login(self.user)
+        self.plan = build_plan(self.profile)
+
+    def test_lesson_shows_content_and_starts_item(self):
+        topic = self.topics[0]
+        topic.resources.create(title="Docs page", url="https://docs.python.org/3/")
+        topic.resources.create(title="Hidden page", url="https://example.com/", is_active=False)
+        topic.tips.create(text="Use type() to check.")
+        response = self.client.get(reverse("lesson", args=[topic.slug]))
+        self.assertContains(response, "Docs page")
+        self.assertNotContains(response, "Hidden page")
+        self.assertContains(response, "Use type() to check.")
+        self.assertEqual(self.plan.items.get(topic=topic).status, "in_progress")
+
+    def test_lesson_never_undoes_done(self):
+        item = self.plan.items.get(topic=self.topics[0])
+        item.status = "done"
+        item.save()
+        self.client.get(reverse("lesson", args=[self.topics[0].slug]))
+        item.refresh_from_db()
+        self.assertEqual(item.status, "done")
+
+    def test_lesson_outside_plan_still_loads(self):
+        other = get_user_model().objects.create_user("ben")
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(reverse("lesson", args=[self.topics[0].slug])).status_code, 200)
+
+    def test_inactive_track_lesson_is_404(self):
+        self.track.is_active = False
+        self.track.save()
+        self.assertEqual(self.client.get(reverse("lesson", args=[self.topics[0].slug])).status_code, 404)
+
+    def test_setup_guide_lists_steps(self):
+        self.track.setup_steps.create(order=1, title="Install Python", body="Download it.")
+        response = self.client.get(reverse("setup_guide", args=["python"]))
+        self.assertContains(response, "Install Python")
+
+    def test_plan_links_to_lessons(self):
+        self.assertContains(self.client.get(reverse("plan")), reverse("lesson", args=[self.topics[0].slug]))

@@ -5,6 +5,7 @@
 {% block content %}
 <h1>Your {{ plan.track.name }} plan</h1>
 {% include "partials/progress_bar.html" %}
+<p><a href="{% url 'setup_guide' plan.track.slug %}">Set up {{ plan.track.name }} on your computer</a></p>
 
 {% for week, items in weeks %}
 <section class="plan-week">
@@ -12,7 +13,7 @@
   <ol class="plan-items">
     {% for item in items %}
     <li class="plan-item plan-item-{{ item.status }}">
-      <h3 class="plan-item-title">{{ item.topic.title }}</h3>
+      <h3 class="plan-item-title"><a href="{% url 'lesson' item.topic.slug %}">{{ item.topic.title }}</a></h3>
       <p class="plan-item-meta">{{ item.topic.estimated_minutes }} min · {{ item.get_status_display }}</p>
       {% if item.topic.summary %}<p class="plan-item-summary">{{ item.topic.summary }}</p>{% endif %}
 

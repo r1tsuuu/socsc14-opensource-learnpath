@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic.title }} · LearnPath{% endblock %}
+
+{% block content %}
+<p class="breadcrumb"><a href="{% url 'plan' %}">My plan</a> / {{ topic.track.name }}</p>
+<h1>{{ topic.title }}</h1>
+<p class="lesson-meta">About {{ topic.estimated_minutes }} min{% if item %} · {{ item.get_status_display }}{% endif %}</p>
+{% if topic.summary %}<p class="lesson-summary">{{ topic.summary }}</p>{% endif %}
+
+{% if prerequisites %}
+<p class="lesson-prerequisites">Builds on:
+  {% for prereq in prerequisites %}<a href="{% url 'lesson' prereq.slug %}">{{ prereq.title }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+</p>
+{% endif %}
+
+<section class="lesson-resources">
+  <h2>Learn it</h2>
+  {% if resources %}
+  <ul>
+    {% for resource in resources %}
+    <li><a href="{{ resource.url }}" target="_blank" rel="noopener">{{ resource.title }}</a> <span class="resource-kind">{{ resource.get_kind_display }}, {{ resource.estimated_minutes }} min</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Links for this topic are coming soon.</p>
+  {% endif %}
+</section>
+
+{% if tips %}
+<section class="lesson-tips">
+  <h2>Tips</h2>
+  <ul>
+    {% for tip in tips %}<li>{{ tip.text }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if item %}
+<form class="lesson-actions" method="post" action="{% url 'plan_item_status' item.pk %}">
+  {% csrf_token %}
+  {% if item.status == "done" %}
+  <p>You've finished this topic.</p>
+  {% else %}
+  <button type="submit" name="status" value="done" class="button">Mark done</button>
+  {% endif %}
+</form>
+{% endif %}
+
+<p><a href="{% url 'setup_guide' topic.track.slug %}">Need to set up {{ topic.track.name }}?</a></p>
+{% endblock %}
