@@ -86,6 +86,21 @@ The credentials live in settings only. Don't add a Google "Social application" i
 
 All tracks, topics, links, tips and quiz questions are edited in the admin page (`/admin`) with no coding. Ask a developer for an admin account.
 
+### Drafting topics with AI
+
+LearnPath doesn't write tutorials; it points learners to docs, MDN, freeCodeCamp, W3Schools and similar, then checks their understanding. The AI can draft the checks so curators only review:
+
+```bash
+python manage.py draft_topic html "Page structure" "Text and headings" "Links and images"
+```
+
+- One Groq call per topic (needs `GROQ_API_KEY` in `.env`). Each draft has a summary, 2 tips, 2 skill check questions and 4 quiz blanks.
+- Titles are added after the track's existing topics, each requiring the one before.
+- The AI never writes links, because models make up URLs. Add 2 real links per topic in admin.
+- It refuses to write into a live track so unreviewed drafts never reach learners. Draft into an inactive track, review every topic in admin, then tick **Active**.
+- Add `--dry-run` to see a draft without saving it.
+- Point `DATABASE_URL` at production only when you mean to draft into it.
+
 To back up content from production:
 
 ```bash
