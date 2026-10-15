@@ -2,6 +2,8 @@
 
 A free web app that helps beginner programmers keep learning when no tutor is around. Learners take a short skill check, get a personal learning plan built from free online resources, and can ask an AI helper for hints when they get stuck.
 
+**Live site:** https://learnpath-l14m.onrender.com (content admin at `/admin/`)
+
 Built by Group 5 (ST2A) with CompSAt at Ateneo de Manila University. Open source, so CompSAt can run and extend it after the project ends.
 
 ## How it works
@@ -76,7 +78,7 @@ DATABASE_URL="<neon url>" python manage.py loaddata fixtures/content.json
 1. In Google Cloud console, create an OAuth client (type: Web application).
 2. Add these authorized redirect URIs:
    - `http://localhost:8000/accounts/google/login/callback/`
-   - `https://<app>.onrender.com/accounts/google/login/callback/`
+   - `https://learnpath-l14m.onrender.com/accounts/google/login/callback/`
 3. Put the client ID and secret in `.env` locally and in Render's environment.
 4. Publish the OAuth consent screen to production, or only listed test users can log in.
 
@@ -110,7 +112,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 
 | Part | Status |
 | --- | --- |
-| Setup and deployment | Done (needs Render + Neon accounts connected) |
+| Setup and deployment | Done. Live on Render with Neon Postgres |
 | Content admin | Done. Sample Python content in `fixtures/content.json` |
 | Google login | Done |
 | Diagnose | Done |
