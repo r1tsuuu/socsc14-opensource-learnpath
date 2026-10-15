@@ -71,6 +71,17 @@ DATABASE_URL="<neon url>" python manage.py createsuperuser
 DATABASE_URL="<neon url>" python manage.py loaddata fixtures/content.json
 ```
 
+### Google login
+
+1. In Google Cloud console, create an OAuth client (type: Web application).
+2. Add these authorized redirect URIs:
+   - `http://localhost:8000/accounts/google/login/callback/`
+   - `https://<app>.onrender.com/accounts/google/login/callback/`
+3. Put the client ID and secret in `.env` locally and in Render's environment.
+4. Publish the OAuth consent screen to production, or only listed test users can log in.
+
+The credentials live in settings only. Don't add a Google "Social application" in admin; allauth then finds two and login crashes.
+
 ## Adding or editing content
 
 All tracks, topics, links, tips and quiz questions are edited in the admin page (`/admin`) with no coding. Ask a developer for an admin account.
@@ -101,7 +112,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | --- | --- |
 | Setup and deployment | Done (needs Render + Neon accounts connected) |
 | Content admin | Done. Sample Python content in `fixtures/content.json` |
-| Google login | Not started |
+| Google login | Done |
 | Diagnose | Not started |
 | Learning Plan | Not started |
 | Lessons and quiz | Not started |

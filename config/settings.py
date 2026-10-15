@@ -37,7 +37,12 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     "content",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -48,6 +53,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    # Every page needs a login except ones marked @login_not_required (login, admin login).
+    "django.contrib.auth.middleware.LoginRequiredMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -110,6 +118,34 @@ STORAGES = {
         else "whitenoise.storage.CompressedManifestStaticFilesStorage"
     },
 }
+
+
+# Google login through django-allauth. Google is the only way in; no passwords.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # admin login
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+# Credentials live here only. Don't also add a Google "Social application" in admin,
+# or allauth finds two and login crashes with MultipleObjectsReturned.
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "APP": {
+            "client_id": env("GOOGLE_CLIENT_ID", default=""),
+            "secret": env("GOOGLE_CLIENT_SECRET", default=""),
+        },
+    }
+}
+SOCIALACCOUNT_ONLY = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*"]
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
+LOGIN_URL = "account_login"
+LOGIN_REDIRECT_URL = "home"
+ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"
 
 
 # Render terminates HTTPS at its proxy; without this Google rejects the OAuth callback.

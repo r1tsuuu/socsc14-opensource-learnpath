@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+
+{% block title %}Log in · LearnPath{% endblock %}
+
+{% block content %}
+<section class="login">
+  <h1>LearnPath</h1>
+  <p class="login-intro">Learn to code at your own pace, with a plan made for you and hints when you get stuck.</p>
+  <a class="button button-primary" href="{% provider_login_url 'google' process='login' %}">Continue with Google</a>
+</section>
+{% endblock %}
