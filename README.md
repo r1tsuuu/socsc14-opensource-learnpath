@@ -115,7 +115,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | Google login | Done |
 | Diagnose | Done |
 | Learning Plan | Done |
-| Lessons and quiz | Not started |
+| Lessons and quiz | Lesson and Setup Guide pages done; quiz in progress |
 | AI helper | Not started |
 | Reminder emails | Not started |
 

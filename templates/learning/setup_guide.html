@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Set up {{ track.name }} · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Set up {{ track.name }}</h1>
+{% if steps %}
+<ol class="setup-steps">
+  {% for step in steps %}
+  <li class="setup-step">
+    <h2 class="setup-step-title">{{ step.title }}</h2>
+    <p class="setup-step-body">{{ step.body|linebreaksbr }}</p>
+    {% if step.link %}<p><a href="{{ step.link }}" target="_blank" rel="noopener">Open the guide</a></p>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p>Setup steps for {{ track.name }} are coming soon.</p>
+{% endif %}
+<p><a href="{% url 'plan' %}">Back to my plan</a></p>
+{% endblock %}

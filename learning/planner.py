@@ -120,3 +120,17 @@ def set_item_status(item, status):
         # Undoing a manual "done" means the learner doesn't know it after all.
         mastery.known = False
         mastery.save(update_fields=["known"])
+
+
+def plan_item_for_topic(profile, topic):
+    """The learner's item for this topic in their active plan, if any."""
+    return PlanItem.objects.filter(
+        plan__learner=profile, plan__track=topic.track, plan__is_active=True, topic=topic
+    ).first()
+
+
+def start_item(item):
+    """Opening a lesson moves a todo item to in progress, and never undoes done or skipped."""
+    if item is not None and item.status == PlanItem.Status.TODO:
+        item.status = PlanItem.Status.IN_PROGRESS
+        item.save(update_fields=["status"])
