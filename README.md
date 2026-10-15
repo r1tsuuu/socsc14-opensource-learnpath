@@ -99,8 +99,8 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 
 | Part | Status |
 | --- | --- |
-| Setup and deployment | In progress |
-| Content admin | In progress |
+| Setup and deployment | Done (needs Render + Neon accounts connected) |
+| Content admin | Done. Sample Python content in `fixtures/content.json` |
 | Google login | Not started |
 | Diagnose | Not started |
 | Learning Plan | Not started |

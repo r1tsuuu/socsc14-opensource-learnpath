@@ -1,0 +1,152 @@
+"""Learning content. Edited by the content team in Django admin only."""
+
+from django.core.exceptions import ValidationError
+from django.db import models
+
+
+class Track(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(
+        default=True, help_text="Only active tracks are shown to learners."
+    )
+
+    class Meta:
+        ordering = ["order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Topic(models.Model):
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="topics")
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(
+        max_length=200,
+        unique=True,
+        help_text="Used in lesson URLs, so it must be unique across all tracks "
+        "(e.g. js-loops if Python already has loops).",
+    )
+    summary = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    estimated_minutes = models.PositiveIntegerField(default=60)
+    prerequisites = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="required_by",
+        help_text="Topics in the same track that must come first.",
+    )
+
+    class Meta:
+        ordering = ["track", "order", "title"]
+
+    def __str__(self):
+        return f"{self.track.name}: {self.title}"
+
+
+class Resource(models.Model):
+    class Kind(models.TextChoices):
+        VIDEO = "video", "Video"
+        ARTICLE = "article", "Article"
+        INTERACTIVE = "interactive", "Interactive"
+        DOCS = "docs", "Docs"
+
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="resources")
+    title = models.CharField(max_length=200)
+    url = models.URLField(max_length=500)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.ARTICLE)
+    estimated_minutes = models.PositiveIntegerField(default=15)
+    order = models.PositiveIntegerField(default=0)
+    last_checked = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["topic", "order", "title"]
+
+    def __str__(self):
+        return self.title
+
+
+class Tip(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="tips")
+    text = models.TextField()
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["topic", "order"]
+
+    def __str__(self):
+        return self.text[:60]
+
+
+class SetupStep(models.Model):
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="setup_steps")
+    order = models.PositiveIntegerField(default=0)
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    link = models.URLField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["track", "order"]
+
+    def __str__(self):
+        return self.title
+
+
+def _validate_string_list(value, field_name):
+    if not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value):
+        raise ValidationError({field_name: "Enter a list of non-empty answers."})
+
+
+class SkillQuestion(models.Model):
+    """Multiple choice. The template adds "I don't know yet"; it is not stored."""
+
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="skill_questions")
+    prompt = models.TextField()
+    code_snippet = models.TextField(blank=True)
+    choices = models.JSONField(default=list, help_text="One choice per line.")
+    correct_index = models.PositiveIntegerField(
+        help_text="Position of the right choice, counting from 0 (first choice = 0)."
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["topic", "order"]
+
+    def __str__(self):
+        return self.prompt[:60]
+
+    def clean(self):
+        _validate_string_list(self.choices, "choices")
+        if len(self.choices) < 2:
+            raise ValidationError({"choices": "Give at least two choices."})
+        if self.correct_index is not None and self.correct_index >= len(self.choices):
+            raise ValidationError(
+                {"correct_index": f"Must be between 0 and {len(self.choices) - 1}."}
+            )
+
+
+class QuizItem(models.Model):
+    """Fill in the blank. Write the blank in the prompt as ___."""
+
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE, related_name="quiz_items")
+    prompt = models.TextField(help_text="Write the blank as ___ (three underscores).")
+    accepted_answers = models.JSONField(default=list, help_text="One accepted answer per line.")
+    hint = models.TextField(blank=True)
+    case_sensitive = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["topic", "id"]
+
+    def __str__(self):
+        return self.prompt[:60]
+
+    def clean(self):
+        _validate_string_list(self.accepted_answers, "accepted_answers")
+        if not self.accepted_answers:
+            raise ValidationError({"accepted_answers": "Give at least one accepted answer."})
+        if "___" not in self.prompt:
+            raise ValidationError({"prompt": "Mark the blank with ___ (three underscores)."})
