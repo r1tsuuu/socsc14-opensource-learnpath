@@ -32,5 +32,9 @@
   {% endif %}
 </section>
 
+<form class="build-plan" method="post" action="{% url 'plan_build' %}">
+  {% csrf_token %}
+  <button type="submit" class="button button-primary">Build my plan</button>
+</form>
 <p><a href="{% url 'skill_check' %}">Retake the skill check</a></p>
 {% endblock %}

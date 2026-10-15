@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Your learning plan · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Your {{ plan.track.name }} plan</h1>
+{% include "partials/progress_bar.html" %}
+
+{% for week, items in weeks %}
+<section class="plan-week">
+  <h2>Week {{ week }}</h2>
+  <ol class="plan-items">
+    {% for item in items %}
+    <li class="plan-item plan-item-{{ item.status }}">
+      <h3 class="plan-item-title">{{ item.topic.title }}</h3>
+      <p class="plan-item-meta">{{ item.topic.estimated_minutes }} min · {{ item.get_status_display }}</p>
+      {% if item.topic.summary %}<p class="plan-item-summary">{{ item.topic.summary }}</p>{% endif %}
+
+      {% if item.topic.resources.all %}
+      <ul class="plan-item-resources">
+        {% for resource in item.topic.resources.all %}
+        <li><a href="{{ resource.url }}" target="_blank" rel="noopener">{{ resource.title }}</a> <span class="resource-kind">{{ resource.get_kind_display }}, {{ resource.estimated_minutes }} min</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if item.topic.tips.all %}
+      <ul class="plan-item-tips">
+        {% for tip in item.topic.tips.all %}<li>{{ tip.text }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+
+      <form class="plan-item-actions" method="post" action="{% url 'plan_item_status' item.pk %}">
+        {% csrf_token %}
+        {% if item.status == "done" or item.status == "skipped" %}
+        <button type="submit" name="status" value="todo" class="button">Undo</button>
+        {% else %}
+        <button type="submit" name="status" value="done" class="button">Mark done</button>
+        <button type="submit" name="status" value="skipped" class="button">Skip</button>
+        {% endif %}
+      </form>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% empty %}
+<p>You already know every topic in this track. Nice work!</p>
+{% endfor %}
+
+<p><a href="{% url 'skill_check' %}">Retake the skill check</a> and rebuild your plan.</p>
+{% endblock %}
