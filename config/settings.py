@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "accounts",
     "diagnose",
     "learning",
+    "assistant",
 ]
 
 MIDDLEWARE = [
@@ -148,6 +149,15 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
 LOGIN_URL = "account_login"
 LOGIN_REDIRECT_URL = "home"
 ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"
+
+
+# AI hints (M6). Both providers are free tiers; leave the keys blank to turn the AI off.
+GROQ_API_KEY = env("GROQ_API_KEY", default="")
+GROQ_MODEL = env("GROQ_MODEL", default="llama-3.1-8b-instant")
+CF_ACCOUNT_ID = env("CF_ACCOUNT_ID", default="")
+CF_API_TOKEN = env("CF_API_TOKEN", default="")
+CF_MODEL = env("CF_MODEL", default="@cf/meta/llama-3.1-8b-instruct")
+AI_DAILY_LIMIT = env.int("AI_DAILY_LIMIT", default=20)
 
 
 # Render terminates HTTPS at its proxy; without this Google rejects the OAuth callback.

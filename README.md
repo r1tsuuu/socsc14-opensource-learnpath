@@ -116,7 +116,7 @@ Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.y
 | Diagnose | Done |
 | Learning Plan | Done |
 | Lessons and quiz | Done |
-| AI helper | Not started |
+| AI helper | Service done: `POST /help/ask/` plus a staff test page at `/help/test/`. The help panel on the plan is M8 |
 | Reminder emails | Not started |
 | Finish screen and Settings | Not started (M13) |
 
