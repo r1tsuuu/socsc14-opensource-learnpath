@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Plan with the AI guide · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Let's plan your learning</h1>
+
+<ol class="chat">
+  {% for message in history %}
+  <li class="chat-message chat-{{ message.role }}">
+    <span class="chat-author">{% if message.role == "user" %}You{% else %}LearnPath guide{% endif %}</span>
+    <p class="chat-text">{{ message.content|linebreaksbr }}</p>
+  </li>
+  {% endfor %}
+</ol>
+
+<form class="chat-form" method="post">
+  {% csrf_token %}
+  <label for="chat-message" class="chat-label">Your message</label>
+  <textarea id="chat-message" name="message" rows="3" maxlength="{{ max_length }}" required autofocus></textarea>
+  <button type="submit" class="button button-primary">Send</button>
+</form>
+
+{% if started %}
+<form class="chat-restart" method="post">
+  {% csrf_token %}
+  <button type="submit" name="action" value="restart" class="button-link">Start over</button>
+</form>
+{% endif %}
+
+<p class="chat-note">The guide only sees what you type here. Don't share personal details. <a href="{% url 'about_you' %}">Prefer a short form instead?</a></p>
+{% endblock %}

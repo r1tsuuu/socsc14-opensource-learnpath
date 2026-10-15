@@ -8,6 +8,7 @@ learner gets the topic's tips and links instead, so the app works with the AI of
 Never sent to the model: accepted quiz answers, names, emails.
 """
 
+import json
 import logging
 from dataclasses import dataclass, field
 
@@ -39,12 +40,16 @@ class Provider:
     model: str
 
 
-def providers():
-    """Configured providers in the order they are tried. Missing keys mean the provider is off."""
+def providers(purpose="hint"):
+    """Configured providers in the order they are tried. Missing keys mean the provider is off.
+
+    Hints use a small fast model; planning (intake, tailoring) uses a larger one.
+    On Groq the two models also have separate rate limits, which spreads the free quota.
+    """
     result = []
     if settings.GROQ_API_KEY:
-        result.append(Provider("groq", settings.GROQ_API_KEY,
-                               "https://api.groq.com/openai/v1", settings.GROQ_MODEL))
+        model = settings.GROQ_PLAN_MODEL if purpose == "plan" else settings.GROQ_MODEL
+        result.append(Provider("groq", settings.GROQ_API_KEY, "https://api.groq.com/openai/v1", model))
     if settings.CF_ACCOUNT_ID and settings.CF_API_TOKEN:
         result.append(Provider(
             "cloudflare", settings.CF_API_TOKEN,
@@ -121,13 +126,17 @@ def build_messages(request):
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def call_provider(provider, messages):
+def call_provider(provider, messages, max_tokens=MAX_TOKENS, json_mode=False, reasoning="low"):
     client = OpenAI(api_key=provider.api_key, base_url=provider.base_url,
                     timeout=TIMEOUT_SECONDS, max_retries=0)
-    # gpt-oss models think before answering; keep that short so it fits in MAX_TOKENS.
-    extra = {"reasoning_effort": "low"} if provider.model.startswith("openai/gpt-oss") else {}
+    extra = {}
+    # gpt-oss models think before answering; keep that short so it fits in max_tokens.
+    if provider.model.startswith("openai/gpt-oss"):
+        extra["reasoning_effort"] = reasoning
+    if json_mode and provider.name == "groq":
+        extra["response_format"] = {"type": "json_object"}
     response = client.chat.completions.create(
-        model=provider.model, messages=messages, max_tokens=MAX_TOKENS, temperature=0.4, **extra,
+        model=provider.model, messages=messages, max_tokens=max_tokens, temperature=0.4, **extra,
     )
     text = (response.choices[0].message.content or "").strip()
     if not text:
@@ -143,6 +152,56 @@ def ask_model(messages):
         except Exception:  # Any provider error means "try the next one".
             logger.warning("AI provider %s failed", provider.name, exc_info=True)
     return None
+
+
+def parse_json_object(text):
+    """Parse a JSON object from a model reply, tolerating code fences or text around it."""
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        raise ValueError("no JSON object in reply")
+    data = json.loads(text[start:end + 1])
+    if not isinstance(data, dict):
+        raise ValueError("reply is not a JSON object")
+    return data
+
+
+def _failed_generation(error):
+    """The text a model produced when Groq rejected it as invalid JSON, if any."""
+    body = getattr(error, "body", None)
+    if isinstance(body, dict):
+        details = body.get("error", body)
+        if isinstance(details, dict):
+            return str(details.get("failed_generation") or "")
+    return ""
+
+
+def ask_model_json(messages, max_tokens=1500, text_ok=False):
+    """Like ask_model, but with the planning model and a parsed JSON object back.
+
+    A provider that replies with broken JSON counts as failed, so the next one is tried.
+    With `text_ok`, a plain-text reply is returned as {"reply": text} instead (used by
+    the intake chat, where a plain follow-up question is still useful).
+    Returns None if all fail.
+    """
+    for provider in providers(purpose="plan"):
+        try:
+            text = call_provider(provider, messages, max_tokens=max_tokens, json_mode=True)
+        except Exception as error:
+            text = _failed_generation(error)
+            if not text:
+                logger.warning("AI provider %s failed (json)", provider.name, exc_info=True)
+                continue
+        try:
+            return parse_json_object(text)
+        except ValueError:
+            if text_ok and text.strip() and "{" not in text:
+                return {"reply": text.strip(), "done": False, "profile": None}
+            logger.warning("AI provider %s returned unusable JSON", provider.name)
+    return None
+
+
+def ai_available():
+    return bool(providers())
 
 
 def daily_limit():
@@ -171,6 +230,23 @@ def release_message(learner):
     AIUsage.objects.filter(
         learner=learner, date=timezone.localdate(), messages_used__gt=0
     ).update(messages_used=F("messages_used") - 1)
+
+
+def reserve_intake(learner):
+    """Count one plan conversation against today's cap. Returns False if the cap is reached."""
+    with transaction.atomic():
+        usage, _ = AIUsage.objects.get_or_create(learner=learner, date=timezone.localdate())
+        usage = AIUsage.objects.select_for_update().get(pk=usage.pk)
+        if usage.intakes_used >= settings.AI_INTAKE_DAILY_LIMIT:
+            return False
+        usage.intakes_used = F("intakes_used") + 1
+        usage.save(update_fields=["intakes_used"])
+    return True
+
+
+def intakes_left_today(learner):
+    usage = AIUsage.objects.filter(learner=learner, date=timezone.localdate()).first()
+    return max(settings.AI_INTAKE_DAILY_LIMIT - (usage.intakes_used if usage else 0), 0)
 
 
 def fallback(request, learner, reason):

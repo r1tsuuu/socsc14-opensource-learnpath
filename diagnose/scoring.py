@@ -93,3 +93,26 @@ def results_for_attempt(attempt):
     topics, questions = track_topics_and_questions(attempt.track)
     answers = dict(attempt.answers.values_list("question_id", "chosen_index"))
     return score_topics(topics, questions, answers)
+
+
+@transaction.atomic
+def finish_quick_check(attempt, claimed_topic_ids, answers):
+    """Score only the topics the learner said they know (AI intake).
+
+    Every other topic in the track is recorded as not known, so it goes in the plan.
+    Like the full check, a topic already passed through a quiz is never undone.
+    """
+    topics, questions = track_topics_and_questions(attempt.track)
+    claimed = set(claimed_topic_ids)
+    claimed_questions = [q for q in questions if q.topic_id in claimed]
+    SkillAnswer.objects.filter(attempt=attempt).delete()
+    SkillAnswer.objects.bulk_create(
+        SkillAnswer(attempt=attempt, question=q, chosen_index=answers.get(q.pk)) for q in claimed_questions
+    )
+    results = score_topics([t for t in topics if t.pk in claimed], claimed_questions, answers)
+    known = {r.topic.pk for r in results if r.known}
+    for topic in topics:
+        save_skill_check_mastery(attempt.learner, topic, topic.pk in known)
+    attempt.finished_at = timezone.now()
+    attempt.save(update_fields=["finished_at"])
+    return results

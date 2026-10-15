@@ -1,0 +1,14 @@
+<ol class="skill-questions">
+  {% for question, field in form.question_fields %}
+  <li class="skill-question{% if field.errors %} form-field-error{% endif %}">
+    <fieldset>
+      <legend>{{ question.prompt }}</legend>
+      {% if question.code_snippet %}<pre class="code"><code>{{ question.code_snippet }}</code></pre>{% endif %}
+      {% for choice in field %}
+      <label class="choice">{{ choice.tag }} {{ choice.choice_label }}</label>
+      {% endfor %}
+    </fieldset>
+    {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+  </li>
+  {% endfor %}
+</ol>

@@ -153,11 +153,14 @@ ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"
 
 # AI hints (M6). Both providers are free tiers; leave the keys blank to turn the AI off.
 GROQ_API_KEY = env("GROQ_API_KEY", default="")
-GROQ_MODEL = env("GROQ_MODEL", default="openai/gpt-oss-20b")
+GROQ_MODEL = env("GROQ_MODEL", default="openai/gpt-oss-20b")  # hints
+GROQ_PLAN_MODEL = env("GROQ_PLAN_MODEL", default="openai/gpt-oss-120b")  # intake and plans
 CF_ACCOUNT_ID = env("CF_ACCOUNT_ID", default="")
 CF_API_TOKEN = env("CF_API_TOKEN", default="")
 CF_MODEL = env("CF_MODEL", default="@cf/meta/llama-3.1-8b-instruct")
 AI_DAILY_LIMIT = env.int("AI_DAILY_LIMIT", default=20)
+# Plan conversations (AI intake) per learner per day. Each one costs about 6-10k tokens.
+AI_INTAKE_DAILY_LIMIT = env.int("AI_INTAKE_DAILY_LIMIT", default=2)
 
 
 # Render terminates HTTPS at its proxy; without this Google rejects the OAuth callback.

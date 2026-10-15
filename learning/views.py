@@ -11,7 +11,8 @@ from content.models import Resource, Topic, Track
 from .forms import QuizForm
 from .grading import PASS_PERCENT, latest_result, submit_quiz
 from .models import PlanItem
-from .planner import active_plan, build_plan, plan_item_for_topic, set_item_status, start_item
+from .planner import active_plan, plan_item_for_topic, set_item_status, start_item
+from .tailoring import build_plan_with_template
 
 
 @require_POST
@@ -19,7 +20,7 @@ def plan_build(request):
     profile = get_profile(request.user)
     if not profile.onboarded or profile.track is None:
         return redirect("about_you")
-    build_plan(profile)
+    build_plan_with_template(profile)
     messages.success(request, "Your learning plan is ready.")
     return redirect("plan")
 
@@ -38,10 +39,11 @@ def plan(request):
         .order_by("order")
     )
     weeks = [(week, list(group)) for week, group in groupby(items, key=lambda item: item.week)]
+    project = getattr(current, "project", None)
     return render(
         request,
         "learning/plan.html",
-        {"plan": current, "weeks": weeks, "progress": current.progress_percent()},
+        {"plan": current, "weeks": weeks, "progress": current.progress_percent(), "project": project},
     )
 
 

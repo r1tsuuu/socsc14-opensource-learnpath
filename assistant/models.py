@@ -2,13 +2,16 @@ from django.db import models
 
 
 class AIUsage(models.Model):
-    """Messages a learner sent to the AI on one day. Never stores the question text."""
+    """A learner's AI use on one day. Never stores question or chat text."""
 
     learner = models.ForeignKey(
         "accounts.LearnerProfile", on_delete=models.CASCADE, related_name="ai_usage"
     )
     date = models.DateField()
     messages_used = models.PositiveIntegerField(default=0)
+    intakes_used = models.PositiveIntegerField(
+        default=0, help_text="Plan conversations started (the AI intake on /start/)."
+    )
 
     class Meta:
         verbose_name_plural = "AI usage"
