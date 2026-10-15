@@ -154,3 +154,18 @@ fieldset {
   display: flex;
   gap: 0.5rem;
 }
+
+.quiz-item,
+.quiz-feedback-item {
+  margin-bottom: 1rem;
+}
+
+.quiz-item input {
+  display: block;
+  margin-top: 0.25rem;
+  font: inherit;
+  font-family: monospace;
+}
+
+.quiz-correct { border-left: 4px solid #3a3; padding-left: 0.5rem; }
+.quiz-wrong { border-left: 4px solid #c33; padding-left: 0.5rem; }

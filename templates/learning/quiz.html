@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz: {{ topic.title }} · LearnPath{% endblock %}
+
+{% block content %}
+<p class="breadcrumb"><a href="{% url 'lesson' topic.slug %}">{{ topic.title }}</a> / Quiz</p>
+<h1>Quiz: {{ topic.title }}</h1>
+
+{% if form.items %}
+<p>Fill in each blank (___). Capitals and extra spaces don't matter. You need {{ pass_percent }}% to pass, and you can retry as often as you like.</p>
+<form class="quiz-form" method="post">
+  {% csrf_token %}
+  <ol class="quiz-items">
+    {% for item, field in form.item_fields %}
+    <li class="quiz-item">
+      <label for="{{ field.id_for_label }}"><code class="quiz-prompt">{{ item.prompt }}</code></label>
+      {{ field }}
+      {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </li>
+    {% endfor %}
+  </ol>
+  <button type="submit" class="button button-primary">Check my answers</button>
+</form>
+{% else %}
+<p>There's no quiz for this topic yet.</p>
+{% endif %}
+{% endblock %}
