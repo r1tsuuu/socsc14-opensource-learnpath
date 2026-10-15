@@ -124,8 +124,10 @@ def build_messages(request):
 def call_provider(provider, messages):
     client = OpenAI(api_key=provider.api_key, base_url=provider.base_url,
                     timeout=TIMEOUT_SECONDS, max_retries=0)
+    # gpt-oss models think before answering; keep that short so it fits in MAX_TOKENS.
+    extra = {"reasoning_effort": "low"} if provider.model.startswith("openai/gpt-oss") else {}
     response = client.chat.completions.create(
-        model=provider.model, messages=messages, max_tokens=MAX_TOKENS, temperature=0.4,
+        model=provider.model, messages=messages, max_tokens=MAX_TOKENS, temperature=0.4, **extra,
     )
     text = (response.choices[0].message.content or "").strip()
     if not text:
