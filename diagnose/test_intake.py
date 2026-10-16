@@ -161,6 +161,12 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         mastery = TopicMastery.objects.get(learner=self.profile, topic=self.topics[0])
         self.assertEqual((mastery.status, mastery.evidence), ("demonstrated", "1 of 1 correct on the quick check"))
 
+        # The plan opens on one clear first activity, and starting it works.
+        next_action = self.client.get(reverse("plan")).context["next_action"]
+        self.assertEqual((next_action.kind, next_action.title), ("start", "Loops"))
+        self.assertEqual(self.client.get(next_action.url).status_code, 200)
+        self.assertEqual(plan.items.get(topic__slug="python-loops").status, "in_progress")
+
     def test_every_question_accepts_not_sure(self):
         self.answer_all(experience="not_sure", known=("not_sure",), hours="not_sure", stuck="not_sure")
         review = self.client.get(reverse("intake"))
