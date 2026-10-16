@@ -10,13 +10,14 @@ Never sent to the model: accepted quiz answers, names, emails.
 
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 from .models import AIUsage
 
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 MAX_TOKENS = 300
 TIMEOUT_SECONDS = 20
+# A rate-limited request is retried once if the provider asks us to wait this long or less.
+# Longer waits would hold the page too long, so the next model is tried instead.
+MAX_RETRY_WAIT_SECONDS = 3
 
 HINT_LEVELS = {
     1: "Ask one guiding question that points the learner toward the idea they are missing.",
@@ -44,12 +48,16 @@ def providers(purpose="hint"):
     """Configured providers in the order they are tried. Missing keys mean the provider is off.
 
     Hints use a small fast model; planning (intake, tailoring) uses a larger one.
-    On Groq the two models also have separate rate limits, which spreads the free quota.
+    On Groq the two models also have separate rate limits, which spreads the free quota,
+    so planning falls back to the small model when the large one is busy.
     """
     result = []
     if settings.GROQ_API_KEY:
-        model = settings.GROQ_PLAN_MODEL if purpose == "plan" else settings.GROQ_MODEL
-        result.append(Provider("groq", settings.GROQ_API_KEY, "https://api.groq.com/openai/v1", model))
+        groq = "https://api.groq.com/openai/v1"
+        models = [settings.GROQ_MODEL]
+        if purpose == "plan" and settings.GROQ_PLAN_MODEL != settings.GROQ_MODEL:
+            models = [settings.GROQ_PLAN_MODEL, settings.GROQ_MODEL]
+        result.extend(Provider("groq", settings.GROQ_API_KEY, groq, model) for model in models)
     if settings.CF_ACCOUNT_ID and settings.CF_API_TOKEN:
         result.append(Provider(
             "cloudflare", settings.CF_API_TOKEN,
@@ -144,11 +152,32 @@ def call_provider(provider, messages, max_tokens=MAX_TOKENS, json_mode=False, re
     return text
 
 
+def _retry_after(error):
+    """Seconds the provider asked us to wait after a rate limit, or None if not given."""
+    response = getattr(error, "response", None)
+    try:
+        return float(response.headers.get("retry-after"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def call_with_retry(provider, messages, **kwargs):
+    """call_provider, retried once after a short rate-limit wait."""
+    try:
+        return call_provider(provider, messages, **kwargs)
+    except RateLimitError as error:
+        wait = _retry_after(error)
+        if wait is None or wait > MAX_RETRY_WAIT_SECONDS:
+            raise
+        time.sleep(wait)
+        return call_provider(provider, messages, **kwargs)
+
+
 def ask_model(messages):
     """Try each provider in order. Returns the reply text, or None if all fail."""
     for provider in providers():
         try:
-            return call_provider(provider, messages)
+            return call_with_retry(provider, messages)
         except Exception:  # Any provider error means "try the next one".
             logger.warning("AI provider %s failed", provider.name, exc_info=True)
     return None
@@ -185,18 +214,18 @@ def ask_model_json(messages, max_tokens=1500, text_ok=False):
     """
     for provider in providers(purpose="plan"):
         try:
-            text = call_provider(provider, messages, max_tokens=max_tokens, json_mode=True)
+            text = call_with_retry(provider, messages, max_tokens=max_tokens, json_mode=True)
         except Exception as error:
             text = _failed_generation(error)
             if not text:
-                logger.warning("AI provider %s failed (json)", provider.name, exc_info=True)
+                logger.warning("AI provider %s (%s) failed (json)", provider.name, provider.model, exc_info=True)
                 continue
         try:
             return parse_json_object(text)
         except ValueError:
             if text_ok and text.strip() and "{" not in text:
                 return {"reply": text.strip(), "done": False, "profile": None}
-            logger.warning("AI provider %s returned unusable JSON", provider.name)
+            logger.warning("AI provider %s (%s) returned unusable JSON", provider.name, provider.model)
     return None
 
 

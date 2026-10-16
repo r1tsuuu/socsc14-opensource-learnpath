@@ -195,8 +195,29 @@ class IntakeFlowTests(IntakeContentMixin, TestCase):
         self.assertEqual(plan.items.count(), 5)
         self.assertEqual(plan.project.source, "template")
 
-    def test_ai_failure_mid_chat_falls_back_to_form(self):
+    def test_busy_ai_keeps_the_chat_and_the_unsent_message(self):
+        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Q?", "done": False, "profile": None}):
+            self.client.post(reverse("intake"), {"message": "hi"})
         with mock.patch("diagnose.intake.ask_model_json", return_value=None):
+            self.assertRedirects(self.client.post(reverse("intake"), {"message": "5 hours"}), reverse("intake"))
+        page = self.client.get(reverse("intake"))
+        self.assertContains(page, "Q?")
+        self.assertContains(page, ">5 hours</textarea>")
+        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Next?", "done": False, "profile": None}):
+            self.client.post(reverse("intake"), {"message": "5 hours"})
+        self.assertNotContains(self.client.get(reverse("intake")), ">5 hours</textarea>")
+        self.assertEqual(AIUsage.objects.get().intakes_used, 1)
+
+    def test_busy_on_first_message_does_not_use_another_intake(self):
+        with mock.patch("diagnose.intake.ask_model_json", return_value=None):
+            self.client.post(reverse("intake"), {"message": "hi"})
+        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Q?", "done": False, "profile": None}):
+            self.assertRedirects(self.client.post(reverse("intake"), {"message": "hi"}), reverse("intake"))
+        self.assertEqual(AIUsage.objects.get().intakes_used, 1)
+
+    def test_repeated_ai_failure_falls_back_to_form(self):
+        with mock.patch("diagnose.intake.ask_model_json", return_value=None):
+            self.assertRedirects(self.client.post(reverse("intake"), {"message": "hi"}), reverse("intake"))
             self.assertRedirects(self.client.post(reverse("intake"), {"message": "hi"}), reverse("about_you"))
         self.assertNotIn("intake_chat", self.client.session)
 
@@ -261,7 +282,8 @@ class BuildMessagesTests(IntakeContentMixin, TestCase):
     def test_planning_uses_the_plan_model(self):
         from assistant.service import providers
         self.assertEqual(providers()[0].model, "small")
-        self.assertEqual(providers(purpose="plan")[0].model, "big")
+        self.assertEqual([p.model for p in providers(purpose="plan")], ["big", "small"])
+        self.assertEqual([p.model for p in providers()], ["small"])
 
 
 @override_settings(**AI_ON)
@@ -284,6 +306,31 @@ class JsonSalvageTests(TestCase):
         from .intake import build_messages
         sent = build_messages([{"role": "user", "content": "hi"}, {"role": "assistant", "content": "Hours?"}], [])
         self.assertEqual(sent[-1]["content"], '{"reply": "Hours?", "done": false, "profile": null}')
+
+
+@override_settings(GROQ_API_KEY="k", GROQ_MODEL="small", GROQ_PLAN_MODEL="big", CF_ACCOUNT_ID="", CF_API_TOKEN="")
+class RateLimitTests(TestCase):
+    def rate_limit(self, retry_after):
+        from openai import RateLimitError
+        response = mock.Mock(status_code=429, headers={"retry-after": retry_after} if retry_after else {})
+        return RateLimitError("429", response=response, body=None)
+
+    @mock.patch("assistant.service.time.sleep")
+    def test_short_wait_is_retried_on_the_same_model(self, sleep):
+        from assistant import service
+        with mock.patch.object(service, "call_provider", side_effect=[self.rate_limit("1"), '{"reply": "ok"}']) as call:
+            self.assertEqual(service.ask_model_json([])["reply"], "ok")
+        sleep.assert_called_once_with(1.0)
+        self.assertEqual([c.args[0].model for c in call.call_args_list], ["big", "big"])
+
+    @mock.patch("assistant.service.time.sleep")
+    def test_long_wait_moves_to_the_small_model(self, sleep):
+        from assistant import service
+        with mock.patch.object(service, "call_provider", side_effect=[self.rate_limit("40"), '{"reply": "ok"}']) as call:
+            with self.assertLogs("assistant.service", "WARNING"):
+                self.assertEqual(service.ask_model_json([])["reply"], "ok")
+        sleep.assert_not_called()
+        self.assertEqual([c.args[0].model for c in call.call_args_list], ["big", "small"])
 
 
 class MilestoneOrderTests(IntakeContentMixin, TestCase):
