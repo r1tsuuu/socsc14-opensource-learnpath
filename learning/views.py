@@ -8,10 +8,11 @@ from django.views.decorators.http import require_POST
 from accounts.models import get_profile
 from content.models import Resource, Topic, Track
 
+from . import journey
 from .forms import QuizForm
 from .grading import PASS_PERCENT, latest_result, submit_quiz
-from .models import PlanItem
-from .planner import active_plan, plan_item_for_topic, set_item_status, start_item
+from .models import PlanFeedback, PlanItem, QuizAttempt
+from .planner import active_plan, plan_item_for_topic, plan_tracks, repace_plan, set_item_status, start_item
 from .tailoring import build_plan_with_template
 
 
@@ -30,21 +31,74 @@ def plan(request):
     current = active_plan(profile)
     if current is None:
         return redirect("result")
-    items = (
-        current.items.select_related("topic")
+    items = list(
+        current.items.select_related("topic__track")
         .prefetch_related(
             Prefetch("topic__resources", queryset=Resource.objects.filter(is_active=True)),
             "topic__tips",
+            "topic__quiz_items",
         )
         .order_by("order")
     )
-    weeks = [(week, list(group)) for week, group in groupby(items, key=lambda item: item.week)]
-    project = getattr(current, "project", None)
+    milestones = journey.milestones_by_week(current)
+    weeks = [
+        {"number": week, "items": list(group), "milestones": milestones.get(week, [])}
+        for week, group in groupby(items, key=lambda item: item.week)
+    ]
+    reviews = journey.due_reviews(profile, current)
+    starting = journey.starting_point(profile, current)
+    unchecked = journey.unchecked_topic_ids(profile, items)
     return render(
         request,
         "learning/plan.html",
-        {"plan": current, "weeks": weeks, "progress": current.progress_percent(), "project": project},
+        {
+            "plan": current,
+            "profile": profile,
+            "tracks": plan_tracks(profile),
+            "weeks": weeks,
+            "progress": current.progress_percent(),
+            "project": getattr(current, "project", None),
+            "next_action": journey.next_action(profile, current, items, reviews),
+            "reviews": reviews,
+            "starting": starting,
+            "unchecked_count": len(unchecked),
+            "unchecked": unchecked,
+            "estimate": journey.estimate(profile, current, items),
+            "hours_choices": [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20],
+        },
     )
+
+
+@require_POST
+def plan_pace(request):
+    """Change weekly time: the same plan, spread over different weeks."""
+    profile = get_profile(request.user)
+    current = active_plan(profile)
+    try:
+        hours = min(max(int(request.POST.get("hours", "")), 1), 40)
+    except ValueError:
+        messages.error(request, "Pick how many hours a week.")
+        return redirect("plan")
+    if current is not None:
+        profile.hours_per_week = hours
+        profile.save(update_fields=["hours_per_week"])
+        repace_plan(current, hours)
+        messages.success(request, f"Your plan now fits {hours} hour{'s' if hours != 1 else ''} a week. Your progress is kept.")
+    return redirect("plan")
+
+
+@require_POST
+def plan_report(request):
+    """A learner flags something in their plan that looks wrong (AI reasons, project, links)."""
+    profile = get_profile(request.user)
+    current = active_plan(profile)
+    text = " ".join(request.POST.get("text", "").split())[:500]
+    if current is None or not text:
+        messages.error(request, "Tell us what looks wrong first.")
+        return redirect("plan")
+    PlanFeedback.objects.create(learner=profile, plan=current, text=text)
+    messages.success(request, "Thanks! The team will take a look.")
+    return redirect("plan")
 
 
 ALLOWED_STATUSES = {PlanItem.Status.DONE, PlanItem.Status.SKIPPED, PlanItem.Status.TODO}
@@ -118,11 +172,23 @@ def quiz(request, topic):
 
 def quiz_result(request, topic):
     topic = _active_topic(topic)
-    result = latest_result(get_profile(request.user), list(topic.quiz_items.all()))
+    profile = get_profile(request.user)
+    items = list(topic.quiz_items.all())
+    result = latest_result(profile, items)
     if result is None:
         return redirect("quiz", topic=topic.slug)
+    # Rough count of tries: each submission saves one attempt per item.
+    tries = QuizAttempt.objects.filter(learner=profile, quiz_item__in=items).count() // max(len(items), 1)
     return render(
         request,
         "learning/quiz_result.html",
-        {"topic": topic, "result": result, "pass_percent": PASS_PERCENT},
+        {
+            "topic": topic,
+            "result": result,
+            "pass_percent": PASS_PERCENT,
+            # After a couple of misses, point back to what this topic builds on.
+            "struggling": not result.passed and tries >= 2,
+            "prerequisites": topic.prerequisites.filter(track__is_active=True),
+            "resources": topic.resources.filter(is_active=True),
+        },
     )

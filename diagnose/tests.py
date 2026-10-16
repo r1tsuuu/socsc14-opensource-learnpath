@@ -6,7 +6,7 @@ from accounts.models import get_profile
 from content.models import SkillQuestion, Topic, Track
 
 from .models import SkillAnswer, SkillCheckAttempt, TopicMastery
-from .scoring import finish_attempt, save_skill_check_mastery, score_topics
+from .scoring import finish_attempt, record_mastery, score_topics
 
 
 class ContentMixin:
@@ -43,7 +43,15 @@ class ScoringRuleTests(ContentMixin, TestCase):
     def test_dont_know_means_not_known(self):
         results = self.score({self.q1.pk: 1, self.q2.pk: 0, self.q3.pk: None})
         self.assertFalse(results["loops"].known)
-        self.assertEqual(results["loops"].reason, "0 of 1 correct")
+        self.assertEqual(results["loops"].status, "unknown")  # no evidence, not a failure
+        self.assertIn("weren't sure", results["loops"].reason)
+
+    def test_status_follows_the_evidence(self):
+        results = self.score({self.q1.pk: 1, self.q2.pk: 1, self.q3.pk: 0})
+        self.assertEqual(results["variables"].status, "emerging")  # 1 of 2
+        self.assertEqual(results["loops"].status, "not_yet")  # 0 of 1
+        self.assertEqual(self.score({self.q1.pk: 1, self.q2.pk: 0})["variables"].status, "demonstrated")
+        self.assertEqual(results["files"].status, "unknown")  # no questions
 
     def test_missing_answer_counts_as_dont_know(self):
         self.assertFalse(self.score({})["loops"].known)
@@ -79,11 +87,23 @@ class FinishAttemptTests(ContentMixin, TestCase):
         self.assertFalse(loops.known)
 
     def test_never_undoes_a_quiz_pass(self):
-        TopicMastery.objects.create(learner=self.profile, topic=self.loops, known=True, source="quiz")
-        save_skill_check_mastery(self.profile, self.loops, known=False)
+        TopicMastery.objects.create(learner=self.profile, topic=self.loops, known=True, status="demonstrated", source="quiz")
+        record_mastery(self.profile, self.loops, "not_yet", "0 of 1", "skill_check")
         loops = TopicMastery.objects.get(learner=self.profile, topic=self.loops)
         self.assertTrue(loops.known)
         self.assertEqual(loops.source, "quiz")
+
+    def test_unknown_never_replaces_evidence(self):
+        record_mastery(self.profile, self.loops, "emerging", "1 of 2 correct", "skill_check")
+        record_mastery(self.profile, self.loops, "unknown", "", "skill_check")
+        loops = TopicMastery.objects.get(learner=self.profile, topic=self.loops)
+        self.assertEqual((loops.status, loops.evidence), ("emerging", "1 of 2 correct"))
+
+    def test_evidence_is_stored(self):
+        attempt = SkillCheckAttempt.objects.create(learner=self.profile, track=self.track)
+        finish_attempt(attempt, {self.q1.pk: 1, self.q2.pk: 0, self.q3.pk: 0})
+        variables = TopicMastery.objects.get(learner=self.profile, topic=self.variables)
+        self.assertEqual((variables.status, variables.evidence), ("demonstrated", "2 of 2 correct on the skill check"))
 
 
 class DiagnoseFlowTests(ContentMixin, TestCase):
@@ -124,7 +144,7 @@ class DiagnoseFlowTests(ContentMixin, TestCase):
         self.assertEqual(SkillCheckAttempt.objects.count(), 1)
         result = self.client.get(reverse("result"))
         self.assertContains(result, "2 of 2 correct")
-        self.assertContains(result, "0 of 1 correct")
+        self.assertContains(result, "You weren&#x27;t sure yet")
         self.assertContains(result, "No skill check questions for this topic yet")
         self.assertEqual(result.context["known"][0].topic, self.variables)
 

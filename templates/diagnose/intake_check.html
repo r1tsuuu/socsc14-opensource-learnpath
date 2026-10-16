@@ -3,23 +3,35 @@
 {% block title %}Quick check · LearnPath{% endblock %}
 
 {% block content %}
-<h1>Quick check: {{ track.name }}</h1>
+<h1>Let's plan your learning</h1>
+<p class="onboarding-progress">
+  {{ phase }}
+  <progress value="{{ done_count }}" max="{{ step_count }}" aria-label="Onboarding progress">{{ done_count }} of {{ step_count }}</progress>
+</p>
 
-<form class="skill-check-form" method="post">
+<section class="chat-message chat-assistant chat-current">
+  <span class="chat-author">LearnPath guide</span>
+  <p class="chat-text chat-question">Quick check: {{ track.name }}</p>
+  {% if not has_questions %}
+  <p class="chat-help">We don't have check questions for those topics yet, so they'll stay in your plan. Each one has a short quiz you can take to skip it.</p>
+  {% elif not_sure %}
+  <p class="chat-help">This isn't a test. It just shows where to start, so your plan skips what you already know. Pick "I don't know yet" whenever you're unsure. That's a real answer, not a wrong one.</p>
+  {% else %}
+  <p class="chat-help">This isn't a test. A few questions on what you ticked, so your plan can skip what you already know. Pick "I don't know yet" whenever you're unsure.</p>
+  {% endif %}
+</section>
+
+<form class="skill-check-form" method="post" data-loading="Checking your answers…">
   {% csrf_token %}
   {% if has_questions %}
-  {% if not_sure %}
-  <p>No worries if you're not sure how good you are. These questions cover the whole track, so your plan can skip what you already know. Pick "I don't know yet" whenever you're unsure.</p>
-  {% else %}
-  <p>You said you already know some of this. Answer these so your plan can skip it. If you're not sure, pick "I don't know yet".</p>
-  {% endif %}
   {% if form.errors %}<p class="field-error">Answer every question. "I don't know yet" is a fine answer.</p>{% endif %}
   {% include "partials/skill_questions.html" %}
-  <button type="submit" class="button button-primary">Build my plan</button>
-  {% else %}
-  <p>You're starting fresh, so there's nothing to check. Your plan will start from the beginning.</p>
-  <button type="submit" class="button button-primary">Build my plan</button>
   {% endif %}
+  <button type="submit" class="button button-primary">Continue</button>
 </form>
-<p class="chat-note">Building your plan can take a few seconds.</p>
+<form class="chat-restart" method="post" action="{% url 'intake' %}">
+  {% csrf_token %}
+  <input type="hidden" name="step" value="known">
+  <button type="submit" name="action" value="change" class="button-link">Change the topics I ticked</button>
+</form>
 {% endblock %}

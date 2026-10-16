@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LearningPlan, PlanItem, QuizAttempt
+from .models import LearningPlan, PlanFeedback, PlanItem, QuizAttempt
 
 
 class PlanItemInline(admin.TabularInline):
@@ -20,3 +20,10 @@ class LearningPlanAdmin(admin.ModelAdmin):
 class QuizAttemptAdmin(admin.ModelAdmin):
     list_display = ["learner", "quiz_item", "answer", "is_correct", "created_at"]
     list_filter = ["is_correct", "quiz_item__topic__track"]
+
+
+@admin.register(PlanFeedback)
+class PlanFeedbackAdmin(admin.ModelAdmin):
+    list_display = ["text", "plan", "created_at", "resolved"]
+    list_editable = ["resolved"]
+    list_filter = ["resolved"]

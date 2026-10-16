@@ -9,10 +9,12 @@ Built by Group 5 (ST2A) with CompSAt at Ateneo de Manila University. Open source
 ## How it works
 
 1. **Sign in with Google.** No passwords to manage.
-2. **Pick what you want to make.** Learners choose a skill path ("Make a website", "Automate boring tasks", "Work with data"...), not a language; the path decides the languages. Six tap-to-answer questions follow: a real project (curated ideas or their own), coding experience, topics they've used, time per week and what helps when they're stuck. They review their answers before anything is saved, then get a quick check only on the topics they say they know ("not sure" checks everything). Typing instead of tapping on the first question uses the AI to match a path; everything else works with the AI off.
-3. **Plan.** The AI picks the topics the goal needs, only from our curated list, with a reason for each. The app adds missing prerequisites, orders them, and spreads them across weeks. Every plan ends with a small project tied to the learner's goal (a template project when the AI is off).
-4. **Learn.** Each topic links to vetted free resources, with tips from our team and a short fill-in-the-blank quiz.
-5. **Get help.** The AI helper gives hints, never full answers, using only that topic's content. When the daily AI limit runs out, learners still get the tips and links.
+2. **Tell us what you want to make.** Learners choose a skill path ("Make a website", "Automate boring tasks", "Work with data"...), not a language; the path decides the languages. One question at a time, all tap-to-answer and all allowing "not sure": a real project (curated ideas or their own), experience, the topics they've used, time per week, an optional date they're aiming for and what helps when they're stuck. Typing instead of tapping on the first question uses the AI to match a path; everything else works with the AI off.
+3. **Show where you're starting.** A short check runs only on the topics they ticked ("not sure" checks everything). Every topic gets a status with its evidence: shown, partly there, to work on, or not checked yet. "I don't know yet" means not checked, never a failure.
+4. **Confirm.** A summary shows their answers, what the check showed, and a rough range of weeks at their pace, flagged when it misses their date (with the weekly hours it would take). Any answer can be changed before the plan is built.
+5. **Plan.** The AI picks topics only from our curated list (with a reason for each) and adapts a curated project idea; the app adds prerequisites, orders topics across the path's live tracks and spreads them over weeks. The plan page leads with one next step, then the goal, starting point, time estimate (with a pace control that keeps progress) and the project step to build each week. AI-written parts are labelled, and learners can report problems for curators.
+6. **Learn and review.** Each topic links to vetted free resources, with tips and a short fill-in-the-blank quiz. Topics with no evidence can be skipped by passing their quiz. Passed topics come back for a short review after a week; a missed review marks the topic as needing one. After repeated quiz misses, the result page points to other resources and the topics it builds on.
+7. **Get help.** The AI helper gives hints, never full answers, using only that topic's content, and leans toward what each learner said helps them when stuck. When the daily AI limit runs out, learners still get the tips and links.
 
 Paths (edited in admin): Make a website, Automate boring tasks, Work with data, Make games and fun projects, Get ahead in CS class. A path is offered once its first track is active. Tracks: Python, JavaScript, HTML, CSS, Java, SQL.
 
@@ -147,7 +149,9 @@ Update this table as parts are finished, and list known bugs below.
 ### Known issues
 
 - Quizzes pass at 70%. With 2 or 3 items per topic that means every answer must be right (2 of 3 is 67%). Write 4 or more items for a topic if one mistake should still pass.
-- Plans still use only a path's first track (e.g. HTML for "Make a website"). Plans that continue into the next track come with the project-based plan.
+- The quick check only covers a path's first track; later tracks start as "not checked yet" and can be skipped by passing each topic's quiz.
+- Reviews come back on a fixed 7-day rule, not a spaced-repetition schedule.
+- Onboarding answers live in the session until confirmed, so they survive a refresh but not a new device.
 - Passing the quiz on the last topic doesn't lead anywhere special yet; the Finish screen is part of M13.
 - Marking a topic done by hand records it as known (source "manual"), so a rebuilt plan skips it. Undo reverses that.
 

@@ -3,20 +3,81 @@
 {% block title %}Your learning plan · LearnPath{% endblock %}
 
 {% block content %}
-<h1>Your {{ plan.track.name }} plan</h1>
+<h1>Your plan{% if profile.path %}: {{ profile.path.title }}{% endif %}</h1>
 {% include "partials/progress_bar.html" %}
-<p><a href="{% url 'setup_guide' plan.track.slug %}">Set up {{ plan.track.name }} on your computer</a></p>
 
-{% for week, items in weeks %}
+{% if next_action %}
+<section class="next-action next-action-{{ next_action.kind }}" aria-labelledby="next-action-title">
+  <p class="next-action-label">{% if next_action.kind == "review" %}Review due{% else %}Your next step{% endif %}</p>
+  <h2 id="next-action-title">{{ next_action.title }}</h2>
+  <p>{{ next_action.text }}</p>
+  <a class="button button-primary" href="{{ next_action.url }}">{{ next_action.button }}</a>
+  {% if reviews|length > 1 %}<p class="next-action-more">{{ reviews|length|add:"-1" }} more topic{{ reviews|length|add:"-1"|pluralize }} also due for a quick review.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="plan-overview">
+  <div class="plan-overview-part">
+    <h2>Your goal</h2>
+    <p>{{ profile.goal_text|default:"Learn the basics" }}</p>
+    {% if tracks|length > 1 %}<p class="plan-overview-note">You'll learn {% for track in tracks %}{{ track.name }}{% if not forloop.last %}, then {% endif %}{% endfor %}.</p>{% endif %}
+  </div>
+
+  <div class="plan-overview-part">
+    <h2>Where you started</h2>
+    <ul class="plan-overview-list">
+      {% if starting.shown %}<li><strong>Shown:</strong> {{ starting.shown|join:", " }}</li>{% endif %}
+      {% if starting.partly %}<li><strong>Partly there:</strong> {{ starting.partly|join:", " }}</li>{% endif %}
+      {% if starting.to_work_on %}<li><strong>To work on:</strong> {{ starting.to_work_on|join:", " }}</li>{% endif %}
+      {% if unchecked_count %}<li><strong>Not checked yet:</strong> {{ unchecked_count }} topic{{ unchecked_count|pluralize }}. Each has a quiz you can take to skip it.</li>{% endif %}
+    </ul>
+  </div>
+
+  <div class="plan-overview-part">
+    <h2>Your time</h2>
+    {% if estimate.high %}
+    <p>About <strong>{{ estimate.low }}{% if estimate.high != estimate.low %}–{{ estimate.high }}{% endif %} weeks</strong> left at {{ estimate.hours }} hour{{ estimate.hours|pluralize }} a week. This is an estimate that updates as you go.</p>
+    {% else %}
+    <p>Every topic is done. Nice work!</p>
+    {% endif %}
+    {% if not estimate.fits %}
+    <p class="review-warning">That's past your date ({{ estimate.weeks_left }} week{{ estimate.weeks_left|pluralize }} left). Give it more time each week, or skip topics your project doesn't need.</p>
+    {% endif %}
+    <form class="plan-pace" method="post" action="{% url 'plan_pace' %}">
+      {% csrf_token %}
+      <label for="plan-hours">Hours a week</label>
+      <select id="plan-hours" name="hours">
+        {% for h in hours_choices %}<option value="{{ h }}"{% if h == estimate.hours %} selected{% endif %}>{{ h }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="button">Update pace</button>
+    </form>
+  </div>
+</section>
+
+<p class="plan-controls">
+  <a href="{% url 'intake' %}?edit=1">Change my answers</a>
+  {% for track in tracks %} · <a href="{% url 'setup_guide' track.slug %}">Set up {{ track.name }}</a>{% endfor %}
+</p>
+
+{% for week in weeks %}
 <section class="plan-week">
-  <h2>Week {{ week }}</h2>
+  <h2>Week {{ week.number }}</h2>
+  {% if week.milestones %}
+  <div class="plan-week-build">
+    <p class="plan-week-build-label">Build this week</p>
+    <ul>{% for text in week.milestones %}<li>{{ text }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
   <ol class="plan-items">
-    {% for item in items %}
+    {% for item in week.items %}
     <li class="plan-item plan-item-{{ item.status }}">
       <h3 class="plan-item-title"><a href="{% url 'lesson' item.topic.slug %}">{{ item.topic.title }}</a></h3>
-      <p class="plan-item-meta">{{ item.topic.estimated_minutes }} min · {{ item.get_status_display }}</p>
+      <p class="plan-item-meta">{% if tracks|length > 1 %}{{ item.topic.track.name }} · {% endif %}{{ item.topic.estimated_minutes }} min · {{ item.get_status_display }}</p>
       {% if item.reason %}<p class="plan-item-reason">Why: {{ item.reason }}</p>{% endif %}
       {% if item.topic.summary %}<p class="plan-item-summary">{{ item.topic.summary }}</p>{% endif %}
+      {% if item.topic_id in unchecked and item.status == "todo" and item.topic.quiz_items.all %}
+      <p class="plan-item-skip">Already know this? <a href="{% url 'quiz' item.topic.slug %}">Take the quiz</a> to skip it.</p>
+      {% endif %}
 
       {% if item.topic.resources.all %}
       <ul class="plan-item-resources">
@@ -46,12 +107,13 @@
   </ol>
 </section>
 {% empty %}
-<p>You already know every topic in this track. Nice work!</p>
+<p>You've already shown every topic we have for this path. Focus on your project!</p>
 {% endfor %}
 
 {% if project %}
-<section class="plan-project">
+<section class="plan-project" id="project">
   <h2>Your project: {{ project.title }}</h2>
+  {% if project.source == "ai" %}<p class="ai-note">Drafted by AI from your answers. Change it however you like; it's yours.</p>{% endif %}
   <p class="plan-project-description">{{ project.description|linebreaksbr }}</p>
   <h3>Steps</h3>
   <ol class="plan-project-milestones">
@@ -64,5 +126,14 @@
 </section>
 {% endif %}
 
-<p><a href="{% url 'intake' %}">Plan again</a> or <a href="{% url 'skill_check' %}">retake the skill check</a>.</p>
+<details class="plan-report">
+  <summary>Something look wrong in your plan?</summary>
+  <p class="ai-note">Some reasons and the project are written by AI, and it can be wrong. Tell us and the team will check.</p>
+  <form method="post" action="{% url 'plan_report' %}">
+    {% csrf_token %}
+    <label for="report-text" class="visually-hidden">What looks wrong?</label>
+    <textarea id="report-text" name="text" rows="3" maxlength="500" required placeholder="e.g. The project step for week 2 uses something I haven't learned yet."></textarea>
+    <button type="submit" class="button">Send</button>
+  </form>
+</details>
 {% endblock %}

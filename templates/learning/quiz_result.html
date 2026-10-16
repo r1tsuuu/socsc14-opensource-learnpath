@@ -20,6 +20,16 @@
 {% if result.passed %}
 <a class="button button-primary" href="{% url 'plan' %}">Back to my plan</a>
 {% else %}
+{% if struggling %}
+<section class="quiz-stuck">
+  <h2>Stuck on this one? That's normal.</h2>
+  <p>Read the hints above first. Then try a different way in:</p>
+  <ul>
+    {% for resource in resources %}<li><a href="{{ resource.url }}" target="_blank" rel="noopener">{{ resource.title }}</a> ({{ resource.get_kind_display|lower }})</li>{% endfor %}
+    {% for prerequisite in prerequisites %}<li>Look back at <a href="{% url 'lesson' prerequisite.slug %}">{{ prerequisite.title }}</a>, which this topic builds on.</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
 <a class="button button-primary" href="{% url 'quiz' topic.slug %}">Try again</a>
 <p><a href="{% url 'lesson' topic.slug %}">Review the lesson</a></p>
 {% endif %}

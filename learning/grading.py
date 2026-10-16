@@ -12,6 +12,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from diagnose.models import TopicMastery
+from diagnose.scoring import record_mastery
 
 from .models import PlanItem, QuizAttempt
 
@@ -78,11 +79,28 @@ def submit_quiz(profile, topic, items, answers):
         ).exclude(status=PlanItem.Status.DONE).update(
             status=PlanItem.Status.DONE, completed_at=timezone.now()
         )
-        TopicMastery.objects.update_or_create(
-            learner=profile, topic=topic,
-            defaults={"known": True, "source": TopicMastery.Source.QUIZ},
-        )
+    record_quiz_evidence(profile, topic, result)
     return result
+
+
+def record_quiz_evidence(profile, topic, result):
+    """Update what the learner has shown on this topic from a quiz result.
+
+    A pass is demonstrated. A miss on a topic they had shown before means it needs a
+    quick review; otherwise it's partly there (some right) or a skill to work on.
+    """
+    score = f"{result.correct} of {result.total}"
+    Status = TopicMastery.Status
+    if result.passed:
+        status, evidence = Status.DEMONSTRATED, f"Passed the quiz ({score})"
+    else:
+        existing = TopicMastery.objects.filter(learner=profile, topic=topic).first()
+        if existing and existing.status in (Status.DEMONSTRATED, Status.NEEDS_REVIEW):
+            status, evidence = Status.NEEDS_REVIEW, f"Quiz: {score} after showing it before"
+        else:
+            status = Status.EMERGING if result.correct else Status.NOT_YET
+            evidence = f"Quiz: {score}"
+    record_mastery(profile, topic, status, evidence, TopicMastery.Source.QUIZ, force=True)
 
 
 def latest_result(profile, items):

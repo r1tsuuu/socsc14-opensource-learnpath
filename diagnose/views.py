@@ -103,21 +103,39 @@ def result(request):
 
 
 ONBOARDING_KEY = "onboarding"
-INTAKE_RESULT_KEY = "intake_result"
 
 
 def _end_intake(request):
-    for key in (ONBOARDING_KEY, INTAKE_RESULT_KEY):
-        request.session.pop(key, None)
+    request.session.pop(ONBOARDING_KEY, None)
+
+
+def _build_plan(profile, project_idea):
+    """Tailor the plan with AI when it's on and under today's cap; otherwise rules only."""
+    if ai_available() and reserve_intake(profile):
+        _, used_ai = tailor_plan(profile, project_idea)
+        return used_ai
+    build_plan_with_template(profile)
+    return False
 
 
 def intake(request):
     """Guided onboarding: one question at a time with tappable choices, then a review."""
+    with onboarding.cached_paths():
+        return _intake(request)
+
+
+def _intake(request):
     if not onboarding.available_paths():
         messages.info(request, "Guided planning isn't set up yet, so here's the short form instead.")
         return redirect("about_you")
 
     answers = request.session.get(ONBOARDING_KEY, {})
+    if request.method == "GET" and request.GET.get("edit") and not answers:
+        # "Change my answers" from the plan: start from the saved profile, on the review.
+        answers = onboarding.answers_from_profile(get_profile(request.user))
+        request.session[ONBOARDING_KEY] = answers
+        return redirect("intake")
+
     if request.method == "POST":
         action = request.POST.get("action", "answer")
         if action == "restart":
@@ -133,10 +151,15 @@ def intake(request):
         if action == "confirm":
             if not onboarding.is_complete(answers):
                 return redirect("intake")
-            result = onboarding.save_answers(get_profile(request.user), answers)
-            request.session.pop(ONBOARDING_KEY, None)
-            request.session[INTAKE_RESULT_KEY] = result
-            return redirect("intake_check")
+            profile = get_profile(request.user)
+            project_idea = onboarding.save_answers(profile, answers)
+            used_ai = _build_plan(profile, project_idea)
+            _end_intake(request)
+            if used_ai:
+                messages.success(request, "Your plan is ready, built around your project. Start with the first step below.")
+            else:
+                messages.success(request, "Your plan is ready. Start with the first step below.")
+            return redirect("plan")
 
         step = onboarding.next_step(answers)
         if request.POST.get("step") != step:
@@ -156,58 +179,65 @@ def intake(request):
         return redirect("intake")
 
     step = onboarding.next_step(answers)
+    if step == "check":
+        return redirect("intake_check")
     steps = onboarding.steps_for(answers)
     context = {
         "transcript": onboarding.transcript(answers),
         "started": bool(answers),
-        "step_number": min(len([s for s in steps if s in answers]) + 1, len(steps)),
+        "phase": onboarding.PHASES[step],
+        "done_count": len([s for s in steps if s in answers]),
         "step_count": len(steps),
         "max_length": onboarding.MAX_TEXT,
     }
     if step == "review":
-        context["review"] = True
-        context["weeks"] = onboarding.estimated_weeks(answers)
-        context["track"] = onboarding.get_path(answers["path"]).first_track()
+        context.update(
+            review=True,
+            fit=onboarding.fit(answers),
+            hours=onboarding.hours_per_week(answers),
+            path=onboarding.get_path(answers["path"]),
+            check=answers.get("check"),
+        )
     else:
         context["question"] = onboarding.question_for(step, answers)
     return render(request, "diagnose/intake.html", context)
 
 
 def intake_check(request):
-    """Quick check on the topics the learner said they know, then build the tailored plan."""
-    result = request.session.get(INTAKE_RESULT_KEY)
-    profile = _profile_with_track(request)
-    if result is None or profile is None:
+    """The quick check, inside onboarding: questions only on the topics the learner ticked."""
+    with onboarding.cached_paths():
+        return _intake_check(request)
+
+
+def _intake_check(request):
+    answers = request.session.get(ONBOARDING_KEY, {})
+    if onboarding.next_step(answers) != "check":
         return redirect("intake")
-    _, questions = track_topics_and_questions(profile.track)
-    claimed_ids = set(
-        Topic.objects.filter(track=profile.track, slug__in=result["known_topics"]).values_list("pk", flat=True)
-    )
+    track = onboarding.first_track(answers)
+    slugs = onboarding.claimed_slugs(answers, track)
+    claimed_ids = set(Topic.objects.filter(track=track, slug__in=slugs).values_list("pk", flat=True))
+    _, questions = track_topics_and_questions(track)
     questions = [q for q in questions if q.topic_id in claimed_ids]
     form = SkillCheckForm(request.POST if request.method == "POST" else None, questions=questions)
 
-    if request.method == "POST" and form.is_valid():
-        attempt = SkillCheckAttempt.objects.create(learner=profile, track=profile.track)
-        finish_quick_check(attempt, claimed_ids, form.answers())
-        if ai_available() and reserve_intake(profile):
-            _, used_ai = tailor_plan(profile, result.get("project_idea", ""))
-        else:
-            build_plan_with_template(profile)
-            used_ai = False
-        _end_intake(request)
-        if used_ai:
-            messages.success(request, "Your plan and project are ready, made for your goal.")
-        else:
-            messages.success(request, "Your plan is ready.")
-        return redirect("plan")
+    if request.method == "POST" and (form.is_valid() or not questions):
+        profile = get_profile(request.user)
+        attempt = SkillCheckAttempt.objects.create(learner=profile, track=track)
+        results = finish_quick_check(attempt, claimed_ids, form.answers() if questions else {})
+        request.session[ONBOARDING_KEY] = onboarding.record_check(answers, results)
+        return redirect("intake")
 
+    steps = onboarding.steps_for(answers)
     return render(
         request,
         "diagnose/intake_check.html",
         {
-            "track": profile.track,
+            "track": track,
             "form": form,
             "has_questions": bool(questions),
-            "not_sure": result.get("not_sure", False),
+            "not_sure": (answers.get("known") or {}).get("not_sure", False),
+            "phase": onboarding.PHASES["check"],
+            "done_count": steps.index("check"),
+            "step_count": len(steps),
         },
     )

@@ -42,8 +42,14 @@ class Path(models.Model):
     def __str__(self):
         return self.title
 
+    # These use .all() so a prefetch of path_tracks__track__topics saves the queries.
+
     def ordered_tracks(self):
-        return [pt.track for pt in self.path_tracks.select_related("track").order_by("order", "pk")]
+        return [pt.track for pt in sorted(self.path_tracks.all(), key=lambda pt: (pt.order, pt.pk))]
+
+    def active_tracks(self):
+        """The tracks learners can study now, in path order. Later tracks join as they go live."""
+        return [t for t in self.ordered_tracks() if t.is_active and len(t.topics.all())]
 
     def first_track(self):
         tracks = self.ordered_tracks()
@@ -51,7 +57,7 @@ class Path(models.Model):
 
     def is_available(self):
         track = self.first_track()
-        return bool(self.is_active and track and track.is_active and track.topics.exists())
+        return bool(self.is_active and track and track.is_active and len(track.topics.all()))
 
 
 class PathTrack(models.Model):

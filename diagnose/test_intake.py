@@ -57,8 +57,10 @@ class QuickCheckScoringTests(IntakeContentMixin, TestCase):
         self.assertEqual(len(results), 2)
         self.assertTrue(known["python-variables"])
         self.assertFalse(known["python-loops"])
-        self.assertFalse(known["python-lists"])
+        self.assertTrue(known["python-lists"])  # not claimed: earlier evidence is kept
         self.assertTrue(known["python-functions"])  # quiz pass is never undone
+        files = TopicMastery.objects.get(learner=self.profile, topic=self.topics[4])
+        self.assertEqual(files.status, "unknown")  # never checked: no evidence, not a gap
         self.assertEqual(attempt.answers.count(), 2)
 
 
@@ -67,6 +69,11 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
     def setUp(self):
         self.make_content()
         self.client.force_login(self.user)
+        # No real AI calls in tests: unless a test says otherwise, the AI gives nothing usable.
+        for target in ("learning.tailoring.ask_model_json", "diagnose.onboarding.ask_model_json"):
+            patcher = mock.patch(target, return_value=None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tailor_reply(self):
         return {
@@ -86,13 +93,20 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
             data["step"] = self.client.get(reverse("intake")).context["question"].step
         return self.client.post(reverse("intake"), data)
 
-    def answer_all(self, path="automation", project=None, experience="a_little", known=("python-variables",), hours="2", stuck="think"):
+    def answer_all(self, path="automation", project=None, experience="a_little", known=("python-variables",),
+                   check=None, hours="2", deadline="0", stuck="think"):
         self.answer(choice=path)
         self.answer(**(project or {"choice": "suggest"}))
         self.answer(choice=experience)
         if experience != "none":
             self.answer(picked=list(known))
+            if known:
+                default = {f"question_{q.pk}": "dont_know" for q in (self.q_vars, self.q_loops)}
+                if list(known) == ["python-variables"]:
+                    default = {f"question_{self.q_vars.pk}": "0"}
+                self.assertRedirects(self.client.post(reverse("intake_check"), check or default), reverse("intake"))
         self.answer(choice=hours)
+        self.answer(choice=deadline)
         self.answer(choice=stuck)
 
     def step(self):
@@ -106,36 +120,75 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.assertContains(page, "What do you want to be able to make?")
         self.assertContains(page, "Automate boring tasks")
         self.assertContains(page, "(coming soon)")  # website path: its first track is inactive
-        self.assertContains(page, "Step 1 of 6")
+        self.assertContains(page, "Your goal")
+        self.assertContains(page, "This isn&#x27;t a test")
 
     def test_full_flow(self):
-        self.answer_all()
+        self.answer(choice="automation")
+        self.answer(choice="suggest")
+        self.answer(choice="a_little")
+        self.answer(picked=["python-variables"])
+        # The quick check comes before the review, only on the ticked topic.
+        self.assertRedirects(self.client.get(reverse("intake")), reverse("intake_check"))
+        check = self.client.get(reverse("intake_check"))
+        self.assertEqual(len(check.context["form"].questions), 1)
+        self.assertContains(check, "isn't a test")
+        self.client.post(reverse("intake_check"), {f"question_{self.q_vars.pk}": "0"})
+        self.answer(choice="2")
+        self.answer(choice="0")
+        self.answer(choice="think")
+
         review = self.client.get(reverse("intake"))
         self.assertTrue(review.context["review"])
-        self.assertContains(review, "Automate boring tasks")
-        self.assertContains(review, "Variables")
-        self.assertEqual(review.context["weeks"], 2)  # 4 topics left x 60 min at 2 hours a week
+        self.assertContains(review, "Did we get this right?")
+        self.assertContains(review, "You showed:</strong> Variables")
+        self.assertEqual((review.context["fit"]["low"], review.context["fit"]["high"]), (2, 3))  # 240 min at 2 h/week
         self.profile.refresh_from_db()
-        self.assertFalse(self.profile.onboarded)  # nothing saved before confirming
+        self.assertFalse(self.profile.onboarded)  # nothing saved to the profile before confirming
 
-        self.assertRedirects(self.answer(action="confirm"), reverse("intake_check"))
+        with mock.patch("learning.tailoring.ask_model_json", return_value=self.tailor_reply()):
+            self.assertRedirects(self.answer(action="confirm"), reverse("plan"))
         self.profile.refresh_from_db()
         self.assertEqual((self.profile.path.slug, self.profile.track, self.profile.hours_per_week), ("automation", self.track, 2))
-        self.assertEqual((self.profile.experience, self.profile.hint_style), ("a_little", "think"))
+        self.assertEqual((self.profile.experience, self.profile.hint_style, self.profile.target_weeks), ("a_little", "think", None))
         self.assertTrue(self.profile.onboarded)
-
-        check = self.client.get(reverse("intake_check"))
-        self.assertEqual(len(check.context["form"].questions), 1)  # only the claimed topic
-        with mock.patch("learning.tailoring.ask_model_json", return_value=self.tailor_reply()):
-            response = self.client.post(reverse("intake_check"), {f"question_{self.q_vars.pk}": "0"})
-        self.assertRedirects(response, reverse("plan"))
         plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
-        # Lists was picked; Loops is added as its prerequisite; Variables is known.
+        # Lists was picked; Loops is added as its prerequisite; Variables was shown.
         self.assertEqual([i.topic.slug for i in plan.items.order_by("order")], ["python-loops", "python-lists"])
         self.assertEqual(plan.project.source, "ai")
         self.assertEqual(AIUsage.objects.get(learner=self.profile).intakes_used, 1)
         self.assertNotIn("onboarding", self.client.session)
-        self.assertNotIn("intake_result", self.client.session)
+        mastery = TopicMastery.objects.get(learner=self.profile, topic=self.topics[0])
+        self.assertEqual((mastery.status, mastery.evidence), ("demonstrated", "1 of 1 correct on the quick check"))
+
+        # The plan opens on one clear first activity, and starting it works.
+        next_action = self.client.get(reverse("plan")).context["next_action"]
+        self.assertEqual((next_action.kind, next_action.title), ("start", "Loops"))
+        self.assertEqual(self.client.get(next_action.url).status_code, 200)
+        self.assertEqual(plan.items.get(topic__slug="python-loops").status, "in_progress")
+
+    def test_every_question_accepts_not_sure(self):
+        self.answer_all(experience="not_sure", known=("not_sure",), hours="not_sure", stuck="not_sure")
+        review = self.client.get(reverse("intake"))
+        self.assertContains(review, "we&#x27;ll start with about 3 hours")
+        self.assertContains(review, "Not sure yet:</strong> Variables, Loops")
+        self.answer(action="confirm")
+        self.profile.refresh_from_db()
+        self.assertEqual((self.profile.experience, self.profile.hours_per_week, self.profile.hint_style), ("a_little", 3, ""))
+
+    def test_goal_that_does_not_fit_the_date_explains_the_trade_off(self):
+        self.answer_all(experience="none", hours="2", deadline="4")  # 300 min at 2 h/week is 3-4 weeks
+        fit = self.client.get(reverse("intake")).context["fit"]
+        self.assertTrue(fit["fits"])
+        self.answer(action="change", step="hours")
+        self.answer(choice="not_sure")  # 3 h/week: still fits
+        self.answer(action="change", step="deadline")
+        self.client.post(reverse("intake"), {"step": "deadline", "choice": "4"})
+        from .onboarding import fit as plan_fit
+        answers = dict(self.client.session["onboarding"], hours="2", deadline=1)
+        result = plan_fit(answers)
+        self.assertFalse(result["fits"])
+        self.assertEqual(result["hours_needed"], 5)  # 300 minutes in one week
 
     def test_unavailable_path_cannot_be_picked(self):
         self.answer(choice="website")
@@ -167,7 +220,7 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.answer_all()
         review = self.client.get(reverse("intake"))
         self.assertNotContains(review, 'class="chat"')
-        self.assertContains(review, "the first part (Python) takes about")
+        self.assertContains(review, "your plan takes roughly")
 
     def test_typed_path_that_matches_nothing_asks_to_tap(self):
         with mock.patch("diagnose.onboarding.ask_model_json", return_value={"path": "none"}):
@@ -179,23 +232,29 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.answer(choice="not_sure")
         self.assertEqual(self.client.session["onboarding"]["path"], "automation")
 
-    def test_beginners_skip_the_known_topics_step(self):
+    def test_beginners_skip_the_known_topics_and_the_check(self):
         self.answer(choice="automation")
         self.answer(choice="suggest")
         self.answer(choice="none")
         page = self.client.get(reverse("intake"))
         self.assertEqual(page.context["question"].step, "hours")
-        self.assertContains(page, "Step 4 of 5")
-        self.answer(choice="2")
-        self.answer(choice="think")
-        self.answer(action="confirm")
-        self.assertContains(self.client.get(reverse("intake_check")), "starting fresh")
+        self.assertEqual((page.context["done_count"], page.context["step_count"]), (3, 6))
+        self.assertRedirects(self.client.get(reverse("intake_check")), reverse("intake"))
+
+    def test_ticking_nothing_skips_the_check(self):
+        self.answer(choice="automation")
+        self.answer(choice="suggest")
+        self.answer(choice="a_little")
+        self.answer(picked=[])
+        self.assertEqual(self.step().step, "hours")
 
     def test_not_sure_learner_gets_the_full_check(self):
-        self.answer_all(known=("not_sure", "python-variables"))
-        self.answer(action="confirm")
+        self.answer(choice="automation")
+        self.answer(choice="suggest")
+        self.answer(choice="a_little")
+        self.answer(picked=["not_sure", "python-variables"])
         page = self.client.get(reverse("intake_check"))
-        self.assertContains(page, "not sure how good you are")
+        self.assertContains(page, "It just shows where to start")
         self.assertContains(page, "v?")
         self.assertContains(page, "l?")
 
@@ -205,7 +264,8 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.assertEqual(self.step().step, "hours")
         self.answer(choice="8")
         answers = self.client.session["onboarding"]
-        self.assertEqual((answers["hours"], answers["stuck"], answers["experience"]), (8, "think", "a_little"))
+        self.assertEqual((answers["hours"], answers["stuck"], answers["experience"]), ("8", "think", "a_little"))
+        self.assertIn("check", answers)
 
     def test_changing_the_path_clears_answers_that_depend_on_it(self):
         from content.models import Path, PathTrack
@@ -217,7 +277,8 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         answers = self.client.session["onboarding"]
         self.assertNotIn("project", answers)
         self.assertNotIn("known", answers)
-        self.assertEqual(answers["hours"], 2)
+        self.assertNotIn("check", answers)
+        self.assertEqual(answers["hours"], "2")
         self.assertEqual(self.step().step, "project")
 
     def test_curated_idea_is_offered_and_passed_to_the_planner(self):
@@ -226,12 +287,14 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.answer(choice="automation")
         self.assertIn(f"idea:{idea.pk}", [c.value for c in self.step().choices])
         self.answer_all(project={"choice": f"idea:{idea.pk}"})
-        self.answer(action="confirm")
-        self.assertEqual(self.client.session["intake_result"]["project_idea"], "Attendance helper: Count who came to each meeting.")
+        with mock.patch("diagnose.views.tailor_plan", return_value=(None, True)) as tailor:
+            self.answer(action="confirm")
+        self.assertEqual(tailor.call_args.args[1], "Attendance helper: Count who came to each meeting.")
 
     def test_own_project_idea_becomes_the_goal(self):
         self.answer_all(project={"text": "a sign-up sheet  for our org"})
-        self.answer(action="confirm")
+        with mock.patch("learning.tailoring.ask_model_json", return_value=None):
+            self.answer(action="confirm")
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.goal_text, "Automate boring tasks: a sign-up sheet for our org")
 
@@ -239,18 +302,16 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         from django.utils import timezone
         AIUsage.objects.create(learner=self.profile, date=timezone.localdate(), intakes_used=1)
         self.answer_all(experience="none")
-        self.answer(action="confirm")
         with mock.patch("learning.tailoring.ask_model_json") as ask:
-            self.assertRedirects(self.client.post(reverse("intake_check"), {}), reverse("plan"))
+            self.assertRedirects(self.answer(action="confirm"), reverse("plan"))
         ask.assert_not_called()
         plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
         self.assertEqual((plan.items.count(), plan.project.source), (5, "template"))
 
     def test_tailoring_failure_gives_full_plan_and_template(self):
         self.answer_all(experience="none")
-        self.answer(action="confirm")
         with mock.patch("learning.tailoring.ask_model_json", return_value=None):
-            self.assertRedirects(self.client.post(reverse("intake_check"), {}), reverse("plan"))
+            self.assertRedirects(self.answer(action="confirm"), reverse("plan"))
         plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
         self.assertEqual((plan.items.count(), plan.project.source), (5, "template"))
 
@@ -272,6 +333,23 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
 
     def test_check_without_onboarding_goes_back(self):
         self.assertRedirects(self.client.get(reverse("intake_check")), reverse("intake"))
+
+    def test_change_my_answers_starts_from_the_saved_profile(self):
+        self.answer_all(project={"text": "attendance helper"})
+        with mock.patch("learning.tailoring.ask_model_json", return_value=None):
+            self.answer(action="confirm")
+        self.assertRedirects(self.client.get(reverse("intake") + "?edit=1"), reverse("intake"))
+        review = self.client.get(reverse("intake"))
+        self.assertTrue(review.context["review"])
+        self.assertContains(review, "attendance helper")
+        self.assertContains(review, "You showed:</strong> Variables")
+
+    def test_changing_the_ticked_topics_redoes_the_check(self):
+        self.answer_all()
+        self.answer(action="change", step="known")
+        self.answer(picked=["python-loops"])
+        self.assertNotIn("check", self.client.session["onboarding"])
+        self.assertEqual(len(self.client.get(reverse("intake_check")).context["form"].questions), 1)
 
 
 @override_settings(**AI_OFF)

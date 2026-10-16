@@ -93,3 +93,22 @@ class QuizAttempt(models.Model):
 
     def __str__(self):
         return f"{self.learner.user} · {self.quiz_item} · {'right' if self.is_correct else 'wrong'}"
+
+
+class PlanFeedback(models.Model):
+    """A learner's report that something in their plan looks wrong, for curators to check."""
+
+    learner = models.ForeignKey(
+        "accounts.LearnerProfile", on_delete=models.CASCADE, related_name="plan_feedback"
+    )
+    plan = models.ForeignKey(LearningPlan, on_delete=models.CASCADE, related_name="feedback")
+    text = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name_plural = "plan feedback"
+
+    def __str__(self):
+        return self.text[:60]
