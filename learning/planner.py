@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from content.models import Topic
 from diagnose.models import TopicMastery
+from diagnose.scoring import record_mastery
 
 from .models import LearningPlan, PlanItem
 
@@ -135,14 +136,11 @@ def set_item_status(item, status):
     mastery = TopicMastery.objects.filter(learner=learner, topic=item.topic).first()
     if status == PlanItem.Status.DONE:
         if mastery is None or not mastery.known:
-            TopicMastery.objects.update_or_create(
-                learner=learner, topic=item.topic,
-                defaults={"known": True, "source": TopicMastery.Source.MANUAL},
-            )
+            record_mastery(learner, item.topic, TopicMastery.Status.DEMONSTRATED,
+                           "You marked it done", TopicMastery.Source.MANUAL, force=True)
     elif mastery and mastery.known and mastery.source == TopicMastery.Source.MANUAL:
-        # Undoing a manual "done" means the learner doesn't know it after all.
-        mastery.known = False
-        mastery.save(update_fields=["known"])
+        # Undoing a manual "done" takes back the only evidence there was.
+        record_mastery(learner, item.topic, TopicMastery.Status.UNKNOWN, "", TopicMastery.Source.MANUAL, force=True)
 
 
 def plan_item_for_topic(profile, topic):

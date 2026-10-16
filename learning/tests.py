@@ -277,6 +277,17 @@ class QuizViewTests(PlanTestMixin, TestCase):
         self.assertContains(self.client.get(reverse("quiz_result", args=[self.topic.slug])), "2 of 2 correct")
         self.assertEqual(QuizAttempt.objects.filter(learner=self.profile).count(), 4)
 
+    def test_quiz_evidence_updates_the_status(self):
+        self.submit("list", "elif")
+        mastery = TopicMastery.objects.get(learner=self.profile, topic=self.topic)
+        self.assertEqual((mastery.status, mastery.evidence), ("emerging", "Quiz: 1 of 2"))
+        self.submit("range", "elif")
+        mastery.refresh_from_db()
+        self.assertEqual((mastery.status, mastery.evidence), ("demonstrated", "Passed the quiz (2 of 2)"))
+        self.submit("list", "if")  # a later miss on something they had shown
+        mastery.refresh_from_db()
+        self.assertEqual((mastery.status, mastery.known), ("needs_review", False))
+
     def test_result_before_any_attempt_goes_to_quiz(self):
         self.assertRedirects(self.client.get(reverse("quiz_result", args=[self.topic.slug])), reverse("quiz", args=[self.topic.slug]))
 

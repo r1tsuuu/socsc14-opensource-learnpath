@@ -57,8 +57,10 @@ class QuickCheckScoringTests(IntakeContentMixin, TestCase):
         self.assertEqual(len(results), 2)
         self.assertTrue(known["python-variables"])
         self.assertFalse(known["python-loops"])
-        self.assertFalse(known["python-lists"])
+        self.assertTrue(known["python-lists"])  # not claimed: earlier evidence is kept
         self.assertTrue(known["python-functions"])  # quiz pass is never undone
+        files = TopicMastery.objects.get(learner=self.profile, topic=self.topics[4])
+        self.assertEqual(files.status, "unknown")  # never checked: no evidence, not a gap
         self.assertEqual(attempt.answers.count(), 2)
 
 
