@@ -19,6 +19,8 @@ question; everything else works with the AI off.
 """
 
 import math
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from accounts.models import LearnerProfile
@@ -93,10 +95,29 @@ class AnswerError(Exception):
 # --- Paths -----------------------------------------------------------------
 
 
+_paths_cache = ContextVar("onboarding_paths", default=None)
+
+
+@contextmanager
+def cached_paths():
+    """Look the paths up once for a whole request instead of on every question and label."""
+    token = _paths_cache.set([])
+    try:
+        yield
+    finally:
+        _paths_cache.reset(token)
+
+
 def offered_paths():
     """Active paths in order, each with whether learners can start it yet."""
+    cache = _paths_cache.get()
+    if cache:
+        return cache[0]
     paths = Path.objects.filter(is_active=True).prefetch_related("path_tracks__track__topics")
-    return [(p, p.is_available()) for p in paths]
+    result = [(p, p.is_available()) for p in paths]
+    if cache is not None:
+        cache.append(result)
+    return result
 
 
 def available_paths():

@@ -297,3 +297,139 @@ class QuizViewTests(PlanTestMixin, TestCase):
     def test_topic_without_quiz(self):
         response = self.client.get(reverse("quiz", args=[self.topics[1].slug]))
         self.assertContains(response, "no quiz for this topic yet")
+
+
+class PathPlanTests(PlanTestMixin, TestCase):
+    """Plans follow the learner's path across its live tracks."""
+
+    def setUp(self):
+        from content.models import Path, PathTrack
+        self.make_learner(hours=3)
+        self.sql = Track.objects.create(name="SQL", slug="sql", order=2)
+        self.select = Topic.objects.create(track=self.sql, title="SELECT", slug="sql-select", order=1, estimated_minutes=60)
+        self.java = Track.objects.create(name="Java", slug="java", order=3, is_active=False)
+        Topic.objects.create(track=self.java, title="Classes", slug="java-classes", order=1)
+        self.path = Path.objects.create(title="Work with data", slug="data", tagline="t")
+        for i, track in enumerate([self.track, self.sql, self.java], 1):
+            PathTrack.objects.create(path=self.path, track=track, order=i)
+        self.profile.path = self.path
+        self.profile.save()
+
+    def test_plan_continues_into_later_live_tracks(self):
+        plan = build_plan(self.profile)
+        slugs = [i.topic.slug for i in plan.items.order_by("order")]
+        self.assertEqual(slugs, ["topic-1", "topic-2", "topic-3", "topic-4", "sql-select"])  # inactive Java left out
+        self.assertEqual(plan.track, self.track)
+
+    def test_lessons_from_the_second_track_belong_to_the_plan(self):
+        from .planner import plan_item_for_topic
+        build_plan(self.profile)
+        self.assertIsNotNone(plan_item_for_topic(self.profile, self.select))
+
+    def test_evidence_gives_a_reason_when_the_ai_did_not(self):
+        TopicMastery.objects.create(learner=self.profile, topic=self.topics[1], status="emerging", source="skill_check")
+        plan = build_plan(self.profile)
+        self.assertIn("partly there", plan.items.get(topic=self.topics[1]).reason)
+        self.assertEqual(plan.items.get(topic=self.topics[0]).reason, "")
+
+
+class RepaceTests(PlanTestMixin, TestCase):
+    def setUp(self):
+        self.make_learner(hours=1)
+        self.client.force_login(self.user)
+        from .tailoring import build_plan_with_template
+        self.plan = build_plan_with_template(self.profile)
+
+    def test_new_pace_keeps_progress_and_moves_project_steps(self):
+        first = self.plan.items.get(topic=self.topics[0])
+        first.status = "done"; first.save()
+        self.assertEqual([m["week"] for m in self.plan.project.milestones], [1, 2, 3, 4])
+        self.assertRedirects(self.client.post(reverse("plan_pace"), {"hours": "2"}), reverse("plan"))
+        self.plan.refresh_from_db()
+        self.assertEqual(list(self.plan.items.order_by("order").values_list("week", flat=True)), [1, 1, 2, 2])
+        self.assertEqual(self.plan.items.get(topic=self.topics[0]).status, "done")
+        self.assertEqual([m["week"] for m in self.plan.project.milestones], [1, 1, 2, 2])
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.hours_per_week, 2)
+
+
+class NextActionTests(PlanTestMixin, TestCase):
+    def setUp(self):
+        self.make_learner()
+        self.client.force_login(self.user)
+        self.plan = build_plan(self.profile)
+        self.quiz_item = QuizItem.objects.create(topic=self.topics[0], prompt="x = ___", accepted_answers=["1"])
+
+    def next_action(self):
+        return self.client.get(reverse("plan")).context["next_action"]
+
+    def test_starts_with_the_first_topic_then_continues_the_one_in_progress(self):
+        self.assertEqual((self.next_action().kind, self.next_action().title), ("start", "Topic 1"))
+        self.client.get(reverse("lesson", args=["topic-2"]))
+        self.assertEqual((self.next_action().kind, self.next_action().title), ("continue", "Topic 2"))
+
+    def test_a_quiz_pass_comes_back_for_review_after_a_week(self):
+        from django.utils import timezone
+        self.client.post(reverse("quiz", args=["topic-1"]), {f"item_{self.quiz_item.pk}": "1"})
+        self.assertEqual(self.next_action().kind, "start")  # not due yet
+        QuizAttempt.objects.update(created_at=timezone.now() - timezone.timedelta(days=8))
+        action = self.next_action()
+        self.assertEqual((action.kind, action.title), ("review", "Quick review: Topic 1"))
+        self.client.post(reverse("quiz", args=["topic-1"]), {f"item_{self.quiz_item.pk}": "1"})
+        self.assertEqual(self.next_action().kind, "start")  # reviewed, so not due again yet
+
+    def test_a_missed_review_needs_another_look(self):
+        self.client.post(reverse("quiz", args=["topic-1"]), {f"item_{self.quiz_item.pk}": "1"})
+        self.client.post(reverse("quiz", args=["topic-1"]), {f"item_{self.quiz_item.pk}": "2"})
+        self.assertEqual(self.next_action().kind, "review")
+
+    def test_everything_done_points_to_the_project(self):
+        from .tailoring import build_plan_with_template
+        build_plan_with_template(self.profile)
+        for topic in self.topics:
+            self.client.post(reverse("plan_item_status", args=[PlanItem.objects.get(plan__is_active=True, topic=topic).pk]), {"status": "done"})
+        self.assertEqual(self.next_action().kind, "project")
+
+
+class PlanPageTests(PlanTestMixin, TestCase):
+    def setUp(self):
+        self.make_learner()
+        self.client.force_login(self.user)
+        from .tailoring import build_plan_with_template
+        self.plan = build_plan_with_template(self.profile)
+
+    def test_shows_goal_start_estimate_and_milestones(self):
+        TopicMastery.objects.create(learner=self.profile, topic=self.topics[0], status="emerging", source="skill_check")
+        page = self.client.get(reverse("plan"))
+        self.assertContains(page, "Your next step")
+        self.assertContains(page, "Partly there:</strong> Topic 1")
+        self.assertContains(page, "Not checked yet:</strong> 3 topics")
+        self.assertContains(page, "2–3 weeks</strong> left at 2 hours a week")
+        self.assertContains(page, "Build this week")
+
+    def test_unchecked_topics_offer_the_quiz_to_skip(self):
+        QuizItem.objects.create(topic=self.topics[1], prompt="___", accepted_answers=["a"])
+        self.assertContains(self.client.get(reverse("plan")), "Take the quiz</a> to skip it")
+
+    def test_date_that_does_not_fit_is_flagged(self):
+        self.profile.target_weeks = 1
+        self.profile.save()
+        self.assertContains(self.client.get(reverse("plan")), "past your date")
+
+    def test_report_saves_feedback(self):
+        from .models import PlanFeedback
+        self.client.post(reverse("plan_report"), {"text": "Week 2 project uses loops  before I learn them"})
+        self.assertEqual(PlanFeedback.objects.get().text, "Week 2 project uses loops before I learn them")
+        self.client.post(reverse("plan_report"), {"text": "  "})
+        self.assertEqual(PlanFeedback.objects.count(), 1)
+
+    def test_quiz_result_points_back_after_repeated_misses(self):
+        item = QuizItem.objects.create(topic=self.topics[1], prompt="___", accepted_answers=["a"])
+        url = reverse("quiz", args=["topic-2"])
+        self.client.post(url, {f"item_{item.pk}": "b"})
+        result = reverse("quiz_result", args=["topic-2"])
+        self.assertNotContains(self.client.get(result), "Stuck on this one")
+        self.client.post(url, {f"item_{item.pk}": "c"})
+        page = self.client.get(result)
+        self.assertContains(page, "Stuck on this one")
+        self.assertContains(page, "Look back at <a href=\"/learn/topic-1/\">Topic 1</a>")

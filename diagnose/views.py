@@ -120,6 +120,11 @@ def _build_plan(profile, project_idea):
 
 def intake(request):
     """Guided onboarding: one question at a time with tappable choices, then a review."""
+    with onboarding.cached_paths():
+        return _intake(request)
+
+
+def _intake(request):
     if not onboarding.available_paths():
         messages.info(request, "Guided planning isn't set up yet, so here's the short form instead.")
         return redirect("about_you")
@@ -200,6 +205,11 @@ def intake(request):
 
 def intake_check(request):
     """The quick check, inside onboarding: questions only on the topics the learner ticked."""
+    with onboarding.cached_paths():
+        return _intake_check(request)
+
+
+def _intake_check(request):
     answers = request.session.get(ONBOARDING_KEY, {})
     if onboarding.next_step(answers) != "check":
         return redirect("intake")

@@ -13,7 +13,7 @@ from content.models import ProjectIdea, Topic
 from diagnose.models import TopicMastery
 
 from .models import PlanProject
-from .planner import build_plan
+from .planner import build_plan, milestone_weeks, plan_tracks
 
 MAX_REASON = 300
 MAX_MILESTONES = 6
@@ -50,9 +50,9 @@ similar size. Set "idea" to its number. Only if none fits at all, set "idea" to 
 {ideas}"""
 
 
-def _known_ids(profile):
+def _known_ids(profile, tracks):
     return set(
-        TopicMastery.objects.filter(learner=profile, topic__track=profile.track, known=True)
+        TopicMastery.objects.filter(learner=profile, topic__track__in=tracks, known=True)
         .values_list("topic_id", flat=True)
     )
 
@@ -67,9 +67,11 @@ def active_ideas(track):
 
 def build_tailor_messages(profile, project_idea, candidates, ideas=()):
     catalog = "\n".join(
-        f"- {t.slug}: {t.title} ({t.estimated_minutes} min). {t.summary}" for t in candidates
+        f"- {t.slug}: {t.track.name} / {t.title} ({t.estimated_minutes} min). {t.summary}" for t in candidates
     )
+    path = f"Path: {profile.path.title} ({', '.join(t.name for t in plan_tracks(profile))})\n" if profile.path_id else ""
     learner = (
+        f"{path}"
         f"Track: {profile.track.name}\n"
         f"Experience: {profile.get_experience_display() or 'not given'}\n"
         f"Hours per week: {profile.hours_per_week or 'not given'}\n"
@@ -113,19 +115,14 @@ def parse_project(data, plan, ideas=()):
         return None
 
     weeks = plan_weeks_by_slug(plan)
-    last_week = max(weeks.values(), default=1)
     milestones = []
     for step in (project.get("milestones") or [])[:MAX_MILESTONES]:
         if not isinstance(step, dict) or not str(step.get("text") or "").strip():
             continue
-        step_weeks = [weeks[s] for s in step.get("topics") or [] if isinstance(s, str) and s in weeks]
-        milestones.append({
-            "week": max(step_weeks) if step_weeks else last_week,
-            "text": _clean_text(step.get("text"), 300),
-        })
+        topics = [s for s in step.get("topics") or [] if isinstance(s, str) and s in weeks]
+        milestones.append({"topics": topics, "text": _clean_text(step.get("text"), 300)})
     # Keep the AI's step order, but never let a later step fall in an earlier week.
-    for previous, current in zip(milestones, milestones[1:]):
-        current["week"] = max(current["week"], previous["week"])
+    milestones = milestone_weeks(milestones, weeks)
     idea = None
     try:
         number = int(project.get("idea") or 0)
@@ -150,10 +147,14 @@ def template_project(plan, profile):
     goal = f" toward your goal: {profile.goal_text}" if profile.goal_text else ""
     by_week = {}
     for item in plan.items.select_related("topic").order_by("order"):
-        by_week.setdefault(item.week, []).append(item.topic.title)
+        by_week.setdefault(item.week, []).append(item.topic)
     milestones = [
-        {"week": week, "text": f"Add something to your project that uses {', '.join(titles)}."}
-        for week, titles in sorted(by_week.items())
+        {
+            "week": week,
+            "topics": [t.slug for t in topics],
+            "text": f"Add something to your project that uses {', '.join(t.title for t in topics)}.",
+        }
+        for week, topics in sorted(by_week.items())
     ]
     ideas = active_ideas(plan.track)
     if ideas:
@@ -197,9 +198,12 @@ def tailor_plan(profile, project_idea=""):
 
     Returns (plan, used_ai).
     """
-    known = _known_ids(profile)
-    candidates = list(
-        Topic.objects.filter(track=profile.track).exclude(pk__in=known).order_by("order", "title")
+    tracks = plan_tracks(profile)
+    rank = {t.pk: i for i, t in enumerate(tracks)}
+    known = _known_ids(profile, tracks)
+    candidates = sorted(
+        Topic.objects.filter(track__in=tracks).exclude(pk__in=known).select_related("track"),
+        key=lambda t: (rank[t.track_id], t.order, t.title),
     )
     if not candidates:
         return build_plan_with_template(profile), False

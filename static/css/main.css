@@ -373,3 +373,105 @@ fieldset {
     animation: none !important;
   }
 }
+
+.next-action {
+  border: 2px solid #1a1a1a;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.next-action h2 {
+  margin: 0.25rem 0;
+}
+
+.next-action-label,
+.plan-week-build-label {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #666;
+}
+
+.next-action-review {
+  border-color: #c90;
+}
+
+.next-action-more,
+.plan-overview-note,
+.plan-item-skip,
+.ai-note {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.plan-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.plan-overview h2 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.plan-overview-part p {
+  margin: 0 0 0.5rem;
+}
+
+.plan-overview-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.plan-pace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.plan-pace select {
+  font: inherit;
+}
+
+.plan-week-build {
+  background: #f4f4f4;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.plan-week-build ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.plan-report {
+  margin: 2rem 0 1rem;
+}
+
+.plan-report textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  margin: 0.5rem 0;
+}
+
+.quiz-stuck {
+  border-left: 4px solid #c90;
+  padding: 0.25rem 0.75rem;
+  margin: 1rem 0;
+}
+
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #1a5fb4;
+  outline-offset: 2px;
+}
