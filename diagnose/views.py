@@ -2,12 +2,12 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 
 from accounts.models import get_profile
-from assistant.service import ai_available, intakes_left_today, reserve_intake
+from assistant.service import ai_available, reserve_intake
 from content.models import Topic
-from learning.tailoring import tailor_plan
+from learning.tailoring import build_plan_with_template, tailor_plan
 
+from . import onboarding
 from .forms import AboutYouForm, SkillCheckForm
-from .intake import MAX_MESSAGE_LENGTH, available_tracks, new_history, save_profile, take_turn
 from .models import SkillCheckAttempt
 from .scoring import (
     finish_attempt,
@@ -102,85 +102,72 @@ def result(request):
     )
 
 
-INTAKE_KEY = "intake_chat"
+ONBOARDING_KEY = "onboarding"
 INTAKE_RESULT_KEY = "intake_result"
-INTAKE_DRAFT_KEY = "intake_draft"
-INTAKE_FAILURES_KEY = "intake_failures"
-# When the AI is busy the chat is kept so the learner can resend; after this many
-# failed sends in a row they get the short form instead.
-MAX_INTAKE_FAILURES = 2
 
 
 def _end_intake(request):
-    for key in (INTAKE_KEY, INTAKE_RESULT_KEY, INTAKE_DRAFT_KEY, INTAKE_FAILURES_KEY):
+    for key in (ONBOARDING_KEY, INTAKE_RESULT_KEY):
         request.session.pop(key, None)
 
 
-def _to_form(request, text):
-    _end_intake(request)
-    messages.info(request, text)
-    return redirect("about_you")
-
-
 def intake(request):
-    """Chat with the AI about what the learner wants, then go to the quick check."""
-    tracks = available_tracks()
-    if not ai_available() or not tracks:
-        return _to_form(request, "The AI guide is off right now, so here's the short form instead.")
+    """Guided onboarding: one question at a time with tappable choices, then a review."""
+    if not onboarding.available_paths():
+        messages.info(request, "Guided planning isn't set up yet, so here's the short form instead.")
+        return redirect("about_you")
 
-    history = request.session.get(INTAKE_KEY)
+    answers = request.session.get(ONBOARDING_KEY, {})
     if request.method == "POST":
-        if request.POST.get("action") == "restart":
+        action = request.POST.get("action", "answer")
+        if action == "restart":
             _end_intake(request)
             return redirect("intake")
-        text = request.POST.get("message", "").strip()
-        if not text:
-            messages.error(request, "Type a message first.")
+        if action == "change":
+            # Re-ask one step; the other answers are kept.
+            step = request.POST.get("step", "")
+            if step in onboarding.STEPS:
+                answers = {k: v for k, v in answers.items() if k != step}
+                request.session[ONBOARDING_KEY] = answers
             return redirect("intake")
-        profile = get_profile(request.user)
-        if history is None:
-            if not reserve_intake(profile):
-                return _to_form(request, "You've planned with the AI guide enough for today, so here's the short form instead.")
-            history = new_history()
-        reply_history, result = take_turn(history, text, tracks)
-        if reply_history is None:
-            failures = request.session.get(INTAKE_FAILURES_KEY, 0) + 1
-            if failures >= MAX_INTAKE_FAILURES:
-                return _to_form(request, "The AI guide is busy right now, so here's the short form instead.")
-            # Keep the chat (and the intake already counted today) so a resend continues it.
-            request.session[INTAKE_KEY] = history
-            request.session[INTAKE_DRAFT_KEY] = text
-            request.session[INTAKE_FAILURES_KEY] = failures
-            messages.error(request, "The AI guide is busy right now. Wait a minute, then send your message again.")
-            return redirect("intake")
-        history = reply_history
-        request.session.pop(INTAKE_DRAFT_KEY, None)
-        request.session.pop(INTAKE_FAILURES_KEY, None)
-        if result is None:
-            request.session[INTAKE_KEY] = history
-            return redirect("intake")
-        save_profile(profile, result)
-        request.session.pop(INTAKE_KEY, None)
-        request.session[INTAKE_RESULT_KEY] = {
-            "known_topics": result["known_topics"],
-            "project_idea": result["project_idea"],
-            "not_sure": result["not_sure"],
-        }
-        messages.success(request, history[-1]["content"])
-        return redirect("intake_check")
+        if action == "confirm":
+            if not onboarding.is_complete(answers):
+                return redirect("intake")
+            result = onboarding.save_answers(get_profile(request.user), answers)
+            request.session.pop(ONBOARDING_KEY, None)
+            request.session[INTAKE_RESULT_KEY] = result
+            return redirect("intake_check")
 
-    if history is None and intakes_left_today(get_profile(request.user)) == 0:
-        return _to_form(request, "You've planned with the AI guide enough for today, so here's the short form instead.")
-    return render(
-        request,
-        "diagnose/intake.html",
-        {
-            "history": history or new_history(),
-            "started": history is not None,
-            "draft": request.session.get(INTAKE_DRAFT_KEY, ""),
-            "max_length": MAX_MESSAGE_LENGTH,
-        },
-    )
+        step = onboarding.next_step(answers)
+        try:
+            answers = onboarding.apply_answer(
+                answers, step,
+                choice=request.POST.get("choice", ""),
+                text=request.POST.get("text", ""),
+                picked=request.POST.getlist("picked"),
+            )
+        except onboarding.AnswerError as error:
+            messages.error(request, str(error))
+        else:
+            request.session[ONBOARDING_KEY] = answers
+        return redirect("intake")
+
+    step = onboarding.next_step(answers)
+    steps = onboarding.steps_for(answers)
+    context = {
+        "transcript": onboarding.transcript(answers),
+        "started": bool(answers),
+        "step_number": min(len([s for s in steps if s in answers]) + 1, len(steps)),
+        "step_count": len(steps),
+        "max_length": onboarding.MAX_TEXT,
+    }
+    if step == "review":
+        context["review"] = True
+        context["weeks"] = onboarding.estimated_weeks(answers)
+        context["path"] = onboarding.get_path(answers["path"])
+    else:
+        context["question"] = onboarding.question_for(step, answers)
+    return render(request, "diagnose/intake.html", context)
 
 
 def intake_check(request):
@@ -199,7 +186,11 @@ def intake_check(request):
     if request.method == "POST" and form.is_valid():
         attempt = SkillCheckAttempt.objects.create(learner=profile, track=profile.track)
         finish_quick_check(attempt, claimed_ids, form.answers())
-        _, used_ai = tailor_plan(profile, result.get("project_idea", ""))
+        if ai_available() and reserve_intake(profile):
+            _, used_ai = tailor_plan(profile, result.get("project_idea", ""))
+        else:
+            build_plan_with_template(profile)
+            used_ai = False
         _end_intake(request)
         if used_ai:
             messages.success(request, "Your plan and project are ready, made for your goal.")

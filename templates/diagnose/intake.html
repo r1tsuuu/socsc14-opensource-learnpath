@@ -1,25 +1,102 @@
 {% extends "base.html" %}
 
-{% block title %}Plan with the AI guide · LearnPath{% endblock %}
+{% block title %}Plan your learning · LearnPath{% endblock %}
 
 {% block content %}
 <h1>Let's plan your learning</h1>
+<p class="onboarding-progress">
+  {% if review %}Last step: check your answers{% else %}Step {{ step_number }} of {{ step_count }}{% endif %}
+  <progress value="{% if review %}{{ step_count }}{% else %}{{ step_number|add:"-1" }}{% endif %}" max="{{ step_count }}"></progress>
+</p>
 
 <ol class="chat">
-  {% for message in history %}
-  <li class="chat-message chat-{{ message.role }}">
-    <span class="chat-author">{% if message.role == "user" %}You{% else %}LearnPath guide{% endif %}</span>
-    <p class="chat-text">{{ message.content|linebreaksbr }}</p>
+  {% for item in transcript %}
+  <li class="chat-message chat-assistant">
+    <span class="chat-author">LearnPath guide</span>
+    <p class="chat-text">{{ item.question }}</p>
+  </li>
+  <li class="chat-message chat-user">
+    <span class="chat-author">You</span>
+    <p class="chat-text">{{ item.answer }}</p>
+    {% if not review %}
+    <form class="chat-change" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="{{ item.step }}">
+      <button type="submit" name="action" value="change" class="button-link">Change</button>
+    </form>
+    {% endif %}
   </li>
   {% endfor %}
+
+  {% if question %}
+  <li class="chat-message chat-assistant chat-current">
+    <span class="chat-author">LearnPath guide</span>
+    <p class="chat-text chat-question">{{ question.title }}</p>
+    <p class="chat-help">{{ question.help }}</p>
+  </li>
+  {% endif %}
 </ol>
 
-<form class="chat-form" method="post">
+{% if question %}
+<form class="onboarding-form" method="post">
   {% csrf_token %}
-  <label for="chat-message" class="chat-label">Your message</label>
-  <textarea id="chat-message" name="message" rows="3" maxlength="{{ max_length }}" required autofocus>{{ draft }}</textarea>
-  <button type="submit" class="button button-primary">Send</button>
+  {% if question.multiple %}
+  <fieldset class="choice-list">
+    <legend class="visually-hidden">{{ question.title }}</legend>
+    {% for choice in question.choices %}
+    <label class="choice-check"><input type="checkbox" name="picked" value="{{ choice.value }}"> {{ choice.label }}</label>
+    {% endfor %}
+  </fieldset>
+  <button type="submit" class="button button-primary">Continue</button>
+  {% else %}
+  <div class="choice-grid">
+    {% for choice in question.choices %}
+    <button type="submit" name="choice" value="{{ choice.value }}" class="choice-card"{% if choice.disabled %} disabled{% endif %}>
+      <span class="choice-card-label">{{ choice.label }}</span>
+      {% if choice.detail %}<span class="choice-card-detail">{{ choice.detail }}</span>{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
 </form>
+
+{% if question.free_text %}
+<form class="onboarding-text" method="post">
+  {% csrf_token %}
+  <label for="onboarding-text" class="chat-label">{{ question.free_text }}</label>
+  <div class="onboarding-text-row">
+    <input id="onboarding-text" type="text" name="text" maxlength="{{ max_length }}" required>
+    <button type="submit" class="button">Send</button>
+  </div>
+</form>
+{% endif %}
+{% endif %}
+
+{% if review %}
+<section class="onboarding-review">
+  <h2>Here's what we'll plan around</h2>
+  <dl class="review-list">
+    {% for item in transcript %}
+    <div class="review-row">
+      <dt>{{ item.question }}</dt>
+      <dd>{{ item.answer }}</dd>
+      <dd>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="{{ item.step }}">
+          <button type="submit" name="action" value="change" class="button-link">Change</button>
+        </form>
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% if weeks %}<p>At your pace, the first part of <strong>{{ path.title|lower }}</strong> takes about <strong>{{ weeks }} week{{ weeks|pluralize }}</strong>. You'll build your project along the way.</p>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" name="action" value="confirm" class="button button-primary">Looks good, build my plan</button>
+  </form>
+</section>
+{% endif %}
 
 {% if started %}
 <form class="chat-restart" method="post">
@@ -27,6 +104,5 @@
   <button type="submit" name="action" value="restart" class="button-link">Start over</button>
 </form>
 {% endif %}
-
-<p class="chat-note">The guide only sees what you type here. Don't share personal details. <a href="{% url 'about_you' %}">Prefer a short form instead?</a></p>
+<p class="chat-note"><a href="{% url 'about_you' %}">Prefer a short form instead?</a></p>
 {% endblock %}

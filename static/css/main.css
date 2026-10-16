@@ -226,3 +226,118 @@ fieldset {
   padding: 0.75rem 1rem;
   margin: 1.5rem 0;
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.onboarding-progress {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  color: #666;
+}
+
+.onboarding-progress progress {
+  flex: 1;
+}
+
+.chat-current {
+  border-color: #1a1a1a;
+}
+
+.chat-question {
+  font-weight: bold;
+}
+
+.chat-help {
+  margin: 0.25rem 0 0;
+  color: #666;
+}
+
+.chat-change {
+  margin-top: 0.25rem;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+  font: inherit;
+  padding: 0.75rem 1rem;
+  border: 1px solid #1a1a1a;
+  background: #fff;
+  cursor: pointer;
+}
+
+.choice-card:hover,
+.choice-card:focus-visible {
+  background: #f4f4f4;
+}
+
+.choice-card:disabled {
+  border-color: #ccc;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.choice-card-label {
+  font-weight: bold;
+}
+
+.choice-card-detail {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.choice-list {
+  border: 0;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.choice-check {
+  display: block;
+  padding: 0.25rem 0;
+}
+
+.onboarding-text-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.onboarding-text-row input {
+  flex: 1;
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+}
+
+.review-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.review-row dt {
+  color: #666;
+}
+
+.review-row dd {
+  margin: 0;
+}

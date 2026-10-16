@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .forms import ProjectIdeaForm, QuizItemForm, SkillQuestionForm, TopicForm
-from .models import ProjectIdea, QuizItem, Resource, SetupStep, SkillQuestion, Tip, Topic, Track
+from .models import Path, PathTrack, ProjectIdea, QuizItem, Resource, SetupStep, SkillQuestion, Tip, Topic, Track
 
 
 class SetupStepInline(admin.StackedInline):
@@ -91,6 +91,19 @@ class QuizItemAdmin(admin.ModelAdmin):
 class SetupStepAdmin(admin.ModelAdmin):
     list_display = ["title", "track", "order"]
     list_filter = ["track"]
+
+
+class PathTrackInline(admin.TabularInline):
+    model = PathTrack
+    extra = 0
+
+
+@admin.register(Path)
+class PathAdmin(admin.ModelAdmin):
+    list_display = ["title", "tagline", "order", "is_active"]
+    list_editable = ["order", "is_active"]
+    prepopulated_fields = {"slug": ["title"]}
+    inlines = [PathTrackInline]
 
 
 @admin.register(ProjectIdea)
