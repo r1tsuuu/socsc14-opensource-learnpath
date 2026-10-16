@@ -18,6 +18,7 @@ from content.models import Path, ProjectIdea
 
 NOT_SURE = "not_sure"
 SUGGEST = "suggest"
+TYPED = "typed"
 MAX_TEXT = 300
 MAX_IDEAS = 3
 
@@ -129,6 +130,9 @@ def question_for(step, answers):
         )
     if step == "project":
         choices = [Choice(f"idea:{i.pk}", i.title, i.brief) for i in ideas_for(path)]
+        if answers.get("path_text"):
+            # What they typed for the first question often already names their project.
+            choices.insert(0, Choice(TYPED, answers["path_text"], "What you told us"))
         choices.append(Choice(SUGGEST, "Suggest one for me", "We'll pick one that fits your plan."))
         return Question(
             "project", "What's one real thing you'd like to make?",
@@ -197,12 +201,18 @@ def apply_answer(answers, step, choice="", text="", picked=()):
             for dependent in ("project", "known"):
                 answers.pop(dependent, None)
         answers["path"] = path.slug
+        if text and not choice:
+            answers["path_text"] = text
+        else:
+            answers.pop("path_text", None)
         return answers
 
     if step == "project":
         path = get_path(answers.get("path", ""))
         ideas = {f"idea:{i.pk}": i for i in ideas_for(path)}
-        if choice in ideas:
+        if choice == TYPED and answers.get("path_text"):
+            answers["project"] = {"text": answers["path_text"], "idea_id": None}
+        elif choice in ideas:
             idea = ideas[choice]
             answers["project"] = {"text": idea.title, "idea_id": idea.pk}
         elif choice == SUGGEST:

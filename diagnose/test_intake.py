@@ -81,6 +81,9 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         }
 
     def answer(self, **data):
+        """Answer the current question, sending its step like the page does."""
+        if "action" not in data:
+            data["step"] = self.client.get(reverse("intake")).context["question"].step
         return self.client.post(reverse("intake"), data)
 
     def answer_all(self, path="automation", project=None, experience="a_little", known=("python-variables",), hours="2", stuck="think"):
@@ -145,9 +148,30 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.assertNotIn("website", ask.call_args.args[0][0]["content"])  # unavailable paths aren't offered
         self.assertEqual(self.step().step, "project")
 
+    def test_typed_path_is_offered_as_the_project(self):
+        with mock.patch("diagnose.onboarding.ask_model_json", return_value={"path": "automation"}):
+            self.answer(text="attendance tracker para sa org")
+        choice = self.step().choices[0]
+        self.assertEqual((choice.value, choice.label), ("typed", "attendance tracker para sa org"))
+        self.answer(choice="typed")
+        self.assertEqual(self.client.session["onboarding"]["project"]["text"], "attendance tracker para sa org")
+
+    def test_double_click_does_not_answer_the_next_question(self):
+        self.answer(choice="automation")
+        self.client.post(reverse("intake"), {"step": "path", "choice": "automation"})  # the second click
+        answers = self.client.session["onboarding"]
+        self.assertNotIn("project", answers)
+        self.assertEqual(self.step().step, "project")
+
+    def test_review_shows_only_the_summary(self):
+        self.answer_all()
+        review = self.client.get(reverse("intake"))
+        self.assertNotContains(review, 'class="chat"')
+        self.assertContains(review, "the first part (Python) takes about")
+
     def test_typed_path_that_matches_nothing_asks_to_tap(self):
         with mock.patch("diagnose.onboarding.ask_model_json", return_value={"path": "none"}):
-            response = self.client.post(reverse("intake"), {"text": "I want to fly"}, follow=True)
+            response = self.client.post(reverse("intake"), {"step": "path", "text": "I want to fly"}, follow=True)
         self.assertContains(response, "Tap the one that&#x27;s closest")
         self.assertEqual(response.context["question"].step, "path")
 
@@ -257,9 +281,9 @@ class OnboardingAIOffTests(IntakeContentMixin, TestCase):
         self.client.force_login(self.user)
 
     def test_taps_still_work_and_typing_asks_to_tap(self):
-        response = self.client.post(reverse("intake"), {"text": "automate stuff"}, follow=True)
+        response = self.client.post(reverse("intake"), {"step": "path", "text": "automate stuff"}, follow=True)
         self.assertEqual(response.context["question"].step, "path")
-        self.client.post(reverse("intake"), {"choice": "automation"})
+        self.client.post(reverse("intake"), {"step": "path", "choice": "automation"})
         self.assertEqual(self.client.get(reverse("intake")).context["question"].step, "project")
 
     def test_form_path_plan_gets_template_project(self):
