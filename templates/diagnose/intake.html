@@ -9,6 +9,7 @@
   <progress value="{% if review %}{{ step_count }}{% else %}{{ step_number|add:"-1" }}{% endif %}" max="{{ step_count }}"></progress>
 </p>
 
+{% if not review %}
 <ol class="chat">
   {% for item in transcript %}
   <li class="chat-message chat-assistant">
@@ -18,13 +19,11 @@
   <li class="chat-message chat-user">
     <span class="chat-author">You</span>
     <p class="chat-text">{{ item.answer }}</p>
-    {% if not review %}
     <form class="chat-change" method="post">
       {% csrf_token %}
       <input type="hidden" name="step" value="{{ item.step }}">
       <button type="submit" name="action" value="change" class="button-link">Change</button>
     </form>
-    {% endif %}
   </li>
   {% endfor %}
 
@@ -36,10 +35,12 @@
   </li>
   {% endif %}
 </ol>
+{% endif %}
 
 {% if question %}
 <form class="onboarding-form" method="post">
   {% csrf_token %}
+  <input type="hidden" name="step" value="{{ question.step }}">
   {% if question.multiple %}
   <fieldset class="choice-list">
     <legend class="visually-hidden">{{ question.title }}</legend>
@@ -63,6 +64,7 @@
 {% if question.free_text %}
 <form class="onboarding-text" method="post">
   {% csrf_token %}
+  <input type="hidden" name="step" value="{{ question.step }}">
   <label for="onboarding-text" class="chat-label">{{ question.free_text }}</label>
   <div class="onboarding-text-row">
     <input id="onboarding-text" type="text" name="text" maxlength="{{ max_length }}" required>
@@ -90,7 +92,7 @@
     </div>
     {% endfor %}
   </dl>
-  {% if weeks %}<p>At your pace, the first part of <strong>{{ path.title|lower }}</strong> takes about <strong>{{ weeks }} week{{ weeks|pluralize }}</strong>. You'll build your project along the way.</p>{% endif %}
+  {% if weeks %}<p>At your pace, the first part ({{ track.name }}) takes about <strong>{{ weeks }} week{{ weeks|pluralize }}</strong>. You'll build your project along the way.</p>{% endif %}
   <form method="post">
     {% csrf_token %}
     <button type="submit" name="action" value="confirm" class="button button-primary">Looks good, build my plan</button>

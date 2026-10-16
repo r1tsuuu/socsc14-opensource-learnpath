@@ -341,3 +341,13 @@ fieldset {
 .review-row dd {
   margin: 0;
 }
+
+@media (max-width: 30rem) {
+  .review-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .review-row dt {
+    grid-column: 1 / -1;
+  }
+}

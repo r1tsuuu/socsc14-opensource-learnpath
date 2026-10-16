@@ -139,6 +139,9 @@ def intake(request):
             return redirect("intake_check")
 
         step = onboarding.next_step(answers)
+        if request.POST.get("step") != step:
+            # A double-click or an old tab answering a question that's already done.
+            return redirect("intake")
         try:
             answers = onboarding.apply_answer(
                 answers, step,
@@ -164,7 +167,7 @@ def intake(request):
     if step == "review":
         context["review"] = True
         context["weeks"] = onboarding.estimated_weeks(answers)
-        context["path"] = onboarding.get_path(answers["path"])
+        context["track"] = onboarding.get_path(answers["path"]).first_track()
     else:
         context["question"] = onboarding.question_for(step, answers)
     return render(request, "diagnose/intake.html", context)
