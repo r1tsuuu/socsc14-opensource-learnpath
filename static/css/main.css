@@ -351,3 +351,25 @@ fieldset {
     grid-column: 1 / -1;
   }
 }
+
+.form-loading {
+  color: #666;
+  font-style: italic;
+}
+
+.review-evidence li {
+  margin-bottom: 0.25rem;
+}
+
+.review-warning {
+  border-left: 4px solid #c90;
+  padding: 0.25rem 0.75rem;
+  margin: 0.75rem 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

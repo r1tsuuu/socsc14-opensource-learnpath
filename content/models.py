@@ -45,6 +45,10 @@ class Path(models.Model):
     def ordered_tracks(self):
         return [pt.track for pt in self.path_tracks.select_related("track").order_by("order", "pk")]
 
+    def active_tracks(self):
+        """The tracks learners can study now, in path order. Later tracks join as they go live."""
+        return [t for t in self.ordered_tracks() if t.is_active and t.topics.exists()]
+
     def first_track(self):
         tracks = self.ordered_tracks()
         return tracks[0] if tracks else None

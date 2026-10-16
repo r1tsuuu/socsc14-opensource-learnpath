@@ -27,6 +27,9 @@ class LearnerProfile(models.Model):
     path = models.ForeignKey(
         "content.Path", on_delete=models.SET_NULL, null=True, blank=True, related_name="learners"
     )
+    target_weeks = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Weeks until a date they're aiming for, if any."
+    )
     hint_style = models.CharField(
         max_length=20, choices=HintStyle.choices, blank=True, help_text="What helps them most when stuck."
     )

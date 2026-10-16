@@ -5,8 +5,8 @@
 {% block content %}
 <h1>Let's plan your learning</h1>
 <p class="onboarding-progress">
-  {% if review %}Last step: check your answers{% else %}Step {{ step_number }} of {{ step_count }}{% endif %}
-  <progress value="{% if review %}{{ step_count }}{% else %}{{ step_number|add:"-1" }}{% endif %}" max="{{ step_count }}"></progress>
+  {{ phase }}
+  <progress value="{{ done_count }}" max="{{ step_count }}" aria-label="Onboarding progress">{{ done_count }} of {{ step_count }}</progress>
 </p>
 
 {% if not review %}
@@ -38,7 +38,7 @@
 {% endif %}
 
 {% if question %}
-<form class="onboarding-form" method="post">
+<form class="onboarding-form" method="post" data-loading="Saving…">
   {% csrf_token %}
   <input type="hidden" name="step" value="{{ question.step }}">
   {% if question.multiple %}
@@ -62,7 +62,7 @@
 </form>
 
 {% if question.free_text %}
-<form class="onboarding-text" method="post">
+<form class="onboarding-text" method="post" data-loading="Reading your answer…">
   {% csrf_token %}
   <input type="hidden" name="step" value="{{ question.step }}">
   <label for="onboarding-text" class="chat-label">{{ question.free_text }}</label>
@@ -76,7 +76,8 @@
 
 {% if review %}
 <section class="onboarding-review">
-  <h2>Here's what we'll plan around</h2>
+  <h2>Did we get this right?</h2>
+  <p class="chat-help">Here's what we'll plan around. Change anything that's off before we build your plan.</p>
   <dl class="review-list">
     {% for item in transcript %}
     <div class="review-row">
@@ -92,8 +93,39 @@
     </div>
     {% endfor %}
   </dl>
-  {% if weeks %}<p>At your pace, the first part ({{ track.name }}) takes about <strong>{{ weeks }} week{{ weeks|pluralize }}</strong>. You'll build your project along the way.</p>{% endif %}
-  <form method="post">
+
+  {% if check %}
+  <h3>Where you're starting</h3>
+  <ul class="review-evidence">
+    {% if check.shown %}<li><strong>You showed:</strong> {{ check.shown|join:", " }}. Your plan skips these. You can still take their quizzes anytime.</li>{% endif %}
+    {% if check.partly %}<li><strong>Partly there:</strong> {{ check.partly|join:", " }}. A quick pass will lock these in.</li>{% endif %}
+    {% if check.to_work_on %}<li><strong>Skills to work on:</strong> {{ check.to_work_on|join:", " }}.</li>{% endif %}
+    {% if check.unsure %}<li><strong>Not sure yet:</strong> {{ check.unsure|join:", " }}. These stay in your plan, and each quiz lets you skip what you know.</li>{% endif %}
+  </ul>
+  {% endif %}
+
+  <h3>How long it might take</h3>
+  {% if fit.high %}
+  <p>At about {{ hours }} hour{{ hours|pluralize }} a week, your plan takes roughly <strong>{{ fit.low }}{% if fit.high != fit.low %}–{{ fit.high }}{% endif %} weeks</strong>. This is an estimate. Your real pace will show as you go.</p>
+  {% if not fit.fits %}
+  <div class="review-warning">
+    {% if fit.tight %}
+    <p>That's tight for your date ({{ fit.deadline }} weeks). It can work if you keep a steady pace.</p>
+    {% else %}
+    <p>That's longer than your {{ fit.deadline }} weeks. To make it, you'd need about <strong>{{ fit.hours_needed }} hours a week</strong>. Or keep your pace: your plan puts what your project needs first, so you'll still have something working by then.</p>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="step" value="hours">
+      <button type="submit" name="action" value="change" class="button">Change my weekly time</button>
+    </form>
+  </div>
+  {% endif %}
+  {% else %}
+  <p>You already know every topic we have for this path so far. Your plan will focus on your project.</p>
+  {% endif %}
+
+  <form method="post" data-loading="Building your plan… this takes a few seconds.">
     {% csrf_token %}
     <button type="submit" name="action" value="confirm" class="button button-primary">Looks good, build my plan</button>
   </form>

@@ -9,6 +9,7 @@
 """
 
 import heapq
+import math
 
 from django.db import transaction
 from django.utils import timezone
@@ -67,6 +68,16 @@ def assign_weeks(topics, hours_per_week):
         weeks.append(week)
         used += minutes
     return weeks
+
+
+def estimate_weeks(minutes, hours_per_week):
+    """A rough range of weeks for this much study. An estimate, never a promise."""
+    if minutes <= 0:
+        return (0, 0)
+    capacity = max(hours_per_week or 1, 1) * 60
+    low = max(math.ceil(minutes * 0.8 / capacity), 1)
+    high = max(math.ceil(minutes * 1.25 / capacity), low)
+    return (low, high)
 
 
 def with_prerequisites(selected_ids, prerequisites, skip_ids):
