@@ -40,6 +40,8 @@ What you need:
    If what they want isn't available, say so kindly and suggest the closest one.
 5. A small project idea they'd enjoy (suggest one if they have none).
 6. Which of the track's topics they already know, if any (they will get a quick check).
+   If they aren't sure how good they are, don't push: tell them a short skill check
+   will figure it out, and set "not_sure" to true.
 
 Return only a JSON object, every time:
 {{"reply": "your message to the learner", "done": false, "profile": null}}
@@ -47,7 +49,8 @@ When you have enough, or when told to finish, return:
 {{"reply": "a short, warm wrap-up", "done": true, "profile": {{
   "track": "track slug", "experience": "none|a_little|comfortable",
   "hours_per_week": 3, "goal": "one sentence", "project_idea": "one sentence",
-  "known_topics": ["topic slugs from that track they say they know"]}}}}
+  "known_topics": ["topic slugs from that track they say they know"],
+  "not_sure": false}}}}
 When talking to the learner, name topics by their titles (e.g. "Loops"), never by slug;
 slugs go only in the profile. Keep replies under 60 words. Plain English, or Taglish if the learner writes in Taglish.
 Never ask for their name, email, school or other personal details."""
@@ -111,7 +114,12 @@ def parse_profile(data, tracks):
     except (TypeError, ValueError):
         hours = 3
     track_slugs = {t.slug for t in track.topics.all()}
-    known = [s for s in profile.get("known_topics") or [] if isinstance(s, str) and s in track_slugs]
+    not_sure = profile.get("not_sure") is True
+    if not_sure:
+        # They can't say what they know, so the quick check covers every topic.
+        known = list(track_slugs)
+    else:
+        known = [s for s in profile.get("known_topics") or [] if isinstance(s, str) and s in track_slugs]
     return {
         "track_id": track.pk,
         "experience": experience,
@@ -119,6 +127,7 @@ def parse_profile(data, tracks):
         "goal": " ".join(str(profile.get("goal") or "").split())[:300],
         "project_idea": " ".join(str(profile.get("project_idea") or "").split())[:300],
         "known_topics": sorted(set(known)),
+        "not_sure": not_sure,
     }
 
 

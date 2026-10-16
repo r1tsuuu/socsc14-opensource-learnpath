@@ -55,6 +55,12 @@ class ParseTests(IntakeContentMixin, TestCase):
         self.assertEqual(profile["hours_per_week"], 40)
         self.assertEqual(profile["known_topics"], ["python-variables"])
 
+    def test_not_sure_checks_every_topic(self):
+        profile = parse_profile(self.done_reply(known_topics=[], not_sure=True), self.tracks)
+        self.assertTrue(profile["not_sure"])
+        self.assertEqual(profile["known_topics"], sorted(t.slug for t in self.topics))
+        self.assertFalse(parse_profile(self.done_reply(not_sure="yes"), self.tracks)["not_sure"])
+
     def test_unknown_or_inactive_track_is_rejected(self):
         self.assertIsNone(parse_profile(self.done_reply(track="sql"), self.tracks))
         self.assertIsNone(parse_profile(self.done_reply(track="rust"), self.tracks))
@@ -234,6 +240,14 @@ class IntakeFlowTests(IntakeContentMixin, TestCase):
         self.client.post(reverse("intake"), {"action": "restart"})
         self.assertNotIn("intake_chat", self.client.session)
 
+    def test_not_sure_learner_gets_the_full_check(self):
+        with mock.patch("diagnose.intake.ask_model_json", return_value=self.done_reply(known_topics=[], not_sure=True)):
+            self.assertRedirects(self.client.post(reverse("intake"), {"message": "di ko alam gaano ako kagaling"}), reverse("intake_check"))
+        page = self.client.get(reverse("intake_check"))
+        self.assertContains(page, "not sure how good you are")
+        self.assertContains(page, "v?")
+        self.assertContains(page, "l?")
+
     def test_check_without_intake_goes_back(self):
         self.assertRedirects(self.client.get(reverse("intake_check")), reverse("intake"))
 
@@ -354,3 +368,56 @@ class MilestoneOrderTests(IntakeContentMixin, TestCase):
         }}, plan)
         self.assertEqual([(m["text"], m["week"]) for m in project["milestones"]],
                          [("first", 3), ("second", 3), ("third", 5)])
+
+
+@override_settings(**AI_ON)
+class ProjectIdeaTests(IntakeContentMixin, TestCase):
+    def setUp(self):
+        from content.models import ProjectIdea
+        self.make_content()
+        self.profile.track = self.track
+        self.profile.hours_per_week = 3
+        self.profile.save()
+        ProjectIdea.objects.create(track=self.track, title="Hidden idea", brief="Off.", order=0, is_active=False)
+        self.quiz_game = ProjectIdea.objects.create(
+            track=self.track, title="Quiz game", brief="A quiz that keeps score.", order=1,
+            done_when=["It asks 5 questions", "It shows the final score"],
+        )
+        self.budget = ProjectIdea.objects.create(track=self.track, title="Budget tracker", brief="Track spending.", order=2)
+
+    def ai_project(self, **extra):
+        project = {"title": "Org trivia night", "description": "A quiz about the org.",
+                   "milestones": [{"topics": ["python-loops"], "text": "Ask one question"}],
+                   "done_when": ["It keeps score"], **extra}
+        return {"topics": [{"slug": "python-loops", "reason": "r"}], "project": project}
+
+    def test_curated_ideas_are_sent_to_the_model(self):
+        from learning.tailoring import active_ideas, build_tailor_messages
+        system = build_tailor_messages(self.profile, "", self.topics, active_ideas(self.track))[0]["content"]
+        self.assertIn("1. Quiz game: A quiz that keeps score.", system)
+        self.assertIn("2. Budget tracker", system)
+        self.assertNotIn("Hidden idea", system)
+
+    def test_adapted_project_remembers_its_idea(self):
+        from learning.tailoring import tailor_plan
+        with mock.patch("learning.tailoring.ask_model_json", return_value=self.ai_project(idea=2)):
+            plan, _ = tailor_plan(self.profile)
+        self.assertEqual(plan.project.title, "Org trivia night")
+        self.assertEqual(plan.project.idea, self.budget)
+        self.assertEqual(plan.project.source, "ai")
+
+    def test_bad_idea_number_is_ignored_and_checks_fall_back_to_the_idea(self):
+        from learning.tailoring import tailor_plan
+        with mock.patch("learning.tailoring.ask_model_json", return_value=self.ai_project(idea=9)):
+            self.assertIsNone(tailor_plan(self.profile)[0].project.idea)
+        with mock.patch("learning.tailoring.ask_model_json", return_value=self.ai_project(idea=1, done_when=[])):
+            project = tailor_plan(self.profile)[0].project
+        self.assertEqual(project.done_when, ["It asks 5 questions", "It shows the final score"])
+
+    def test_without_ai_the_first_active_idea_is_the_project(self):
+        from learning.tailoring import tailor_plan
+        with mock.patch("learning.tailoring.ask_model_json", return_value=None):
+            project = tailor_plan(self.profile)[0].project
+        self.assertEqual((project.title, project.idea, project.source), ("Quiz game", self.quiz_game, "template"))
+        self.assertEqual(project.done_when, ["It asks 5 questions", "It shows the final score"])
+        self.assertTrue(project.milestones)

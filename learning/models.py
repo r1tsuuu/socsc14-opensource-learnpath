@@ -70,6 +70,10 @@ class PlanProject(models.Model):
     milestones = models.JSONField(default=list, help_text='List of {"week": n, "text": "..."}.')
     done_when = models.JSONField(default=list, help_text="Checklist of strings.")
     source = models.CharField(max_length=20, choices=Source.choices, default=Source.TEMPLATE)
+    idea = models.ForeignKey(
+        "content.ProjectIdea", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+        help_text="The curated idea this project was adapted from, if any.",
+    )
 
     def __str__(self):
         return self.title

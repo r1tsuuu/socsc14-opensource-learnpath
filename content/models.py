@@ -96,6 +96,23 @@ class SetupStep(models.Model):
         return self.title
 
 
+class ProjectIdea(models.Model):
+    """A curated project idea for a track. The AI picks one and adapts it to each learner."""
+
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="project_ideas")
+    title = models.CharField(max_length=200)
+    brief = models.TextField(help_text="What the learner builds, in 2-3 sentences, for a beginner.")
+    done_when = models.JSONField(default=list, help_text="One check per line, e.g. \"It runs without errors.\"")
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["track", "order", "title"]
+
+    def __str__(self):
+        return self.title
+
+
 def _validate_string_list(value, field_name):
     if not isinstance(value, list) or not all(isinstance(v, str) and v.strip() for v in value):
         raise ValidationError({field_name: "Enter a list of non-empty answers."})

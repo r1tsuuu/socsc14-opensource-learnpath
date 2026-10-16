@@ -8,7 +8,11 @@
 <form class="skill-check-form" method="post">
   {% csrf_token %}
   {% if has_questions %}
+  {% if not_sure %}
+  <p>No worries if you're not sure how good you are. These questions cover the whole track, so your plan can skip what you already know. Pick "I don't know yet" whenever you're unsure.</p>
+  {% else %}
   <p>You said you already know some of this. Answer these so your plan can skip it. If you're not sure, pick "I don't know yet".</p>
+  {% endif %}
   {% if form.errors %}<p class="field-error">Answer every question. "I don't know yet" is a fine answer.</p>{% endif %}
   {% include "partials/skill_questions.html" %}
   <button type="submit" class="button button-primary">Build my plan</button>
