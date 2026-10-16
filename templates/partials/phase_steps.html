@@ -1,0 +1,7 @@
+<ol class="phase-steps" aria-label="Planning progress">
+  {% for phase in phases %}
+  <li class="phase-step phase-step-{{ phase.state }}"{% if phase.state == "current" %} aria-current="step"{% endif %}>
+    <span class="visually-hidden">{% if phase.state == "done" %}Done: {% elif phase.state == "current" %}Now: {% endif %}</span>{{ phase.name }}
+  </li>
+  {% endfor %}
+</ol>

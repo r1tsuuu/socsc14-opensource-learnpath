@@ -475,3 +475,103 @@ summary:focus-visible {
   outline: 3px solid #1a5fb4;
   outline-offset: 2px;
 }
+
+.phase-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.phase-step::before {
+  content: "○ ";
+}
+
+.phase-step-done::before {
+  content: "✓ ";
+}
+
+.phase-step-current {
+  color: #1a1a1a;
+  font-weight: bold;
+}
+
+.phase-step-current::before {
+  content: "● ";
+}
+
+.answers-so-far {
+  margin: 1.5rem 0 1rem;
+}
+
+.answers-so-far summary {
+  cursor: pointer;
+}
+
+.plan-progress-note {
+  margin: 0.25rem 0 0;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.plan-week {
+  margin-bottom: 1rem;
+}
+
+.plan-week-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.plan-week-summary::-webkit-details-marker {
+  display: none;
+}
+
+.plan-week-summary::before {
+  content: "▸";
+}
+
+.plan-week[open] > .plan-week-summary::before {
+  content: "▾";
+}
+
+.plan-week-summary h2 {
+  margin: 0.5rem 0;
+}
+
+.plan-week-count {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.login-points {
+  padding-left: 1.25rem;
+}
+
+.login-points li {
+  margin-bottom: 0.5rem;
+}
+
+.login-note {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.lesson-build,
+.quiz-passed {
+  border-left: 4px solid #1a1a1a;
+  padding: 0.25rem 0.75rem;
+  margin: 1rem 0;
+}
+
+.lesson-actions {
+  margin: 1rem 0;
+}

@@ -5,12 +5,13 @@
 {% block content %}
 <h1>Your plan{% if profile.path %}: {{ profile.path.title }}{% endif %}</h1>
 {% include "partials/progress_bar.html" %}
+<p class="plan-progress-note">{{ done_count }} of {{ counted }} topic{{ counted|pluralize }} done{% if starting.shown %} · plus {{ starting.shown|length }} you already showed on the check{% endif %}</p>
 
 {% if next_action %}
 <section class="next-action next-action-{{ next_action.kind }}" aria-labelledby="next-action-title">
   <p class="next-action-label">{% if next_action.kind == "review" %}Review due{% else %}Your next step{% endif %}</p>
   <h2 id="next-action-title">{{ next_action.title }}</h2>
-  <p>{{ next_action.text }}</p>
+  <p>{{ next_action.text|capfirst }}</p>
   <a class="button button-primary" href="{{ next_action.url }}">{{ next_action.button }}</a>
   {% if reviews|length > 1 %}<p class="next-action-more">{{ reviews|length|add:"-1" }} more topic{{ reviews|length|add:"-1"|pluralize }} also due for a quick review.</p>{% endif %}
 </section>
@@ -60,8 +61,11 @@
 </p>
 
 {% for week in weeks %}
-<section class="plan-week">
-  <h2>Week {{ week.number }}</h2>
+<details class="plan-week"{% if week.number == current_week or not current_week %} open{% endif %}>
+  <summary class="plan-week-summary">
+    <h2>Week {{ week.number }}</h2>
+    <span class="plan-week-count">{{ week.done }} of {{ week.items|length }} done{% if week.number == current_week %} · you're here{% endif %}</span>
+  </summary>
   {% if week.milestones %}
   <div class="plan-week-build">
     <p class="plan-week-build-label">Build this week</p>
@@ -73,7 +77,7 @@
     <li class="plan-item plan-item-{{ item.status }}">
       <h3 class="plan-item-title"><a href="{% url 'lesson' item.topic.slug %}">{{ item.topic.title }}</a></h3>
       <p class="plan-item-meta">{% if tracks|length > 1 %}{{ item.topic.track.name }} · {% endif %}{{ item.topic.estimated_minutes }} min · {{ item.get_status_display }}</p>
-      {% if item.reason %}<p class="plan-item-reason">Why: {{ item.reason }}</p>{% endif %}
+      {% if item.reason %}<p class="plan-item-reason">Why: {{ item.reason|capfirst }}</p>{% endif %}
       {% if item.topic.summary %}<p class="plan-item-summary">{{ item.topic.summary }}</p>{% endif %}
       {% if item.topic_id in unchecked and item.status == "todo" and item.topic.quiz_items.all %}
       <p class="plan-item-skip">Already know this? <a href="{% url 'quiz' item.topic.slug %}">Take the quiz</a> to skip it.</p>
@@ -105,7 +109,7 @@
     </li>
     {% endfor %}
   </ol>
-</section>
+</details>
 {% empty %}
 <p>You've already shown every topic we have for this path. Focus on your project!</p>
 {% endfor %}

@@ -18,7 +18,19 @@
 </ol>
 
 {% if result.passed %}
-<a class="button button-primary" href="{% url 'plan' %}">Back to my plan</a>
+<section class="quiz-passed">
+  <p><strong>{{ topic.title }} is done.</strong>{% if plan_progress is not None %} Your plan is now {{ plan_progress }}% done.{% endif %}</p>
+  {% if next_action and next_action.kind != "project" %}
+  <p>Next up: <strong>{{ next_action.title }}</strong></p>
+  <a class="button button-primary" href="{{ next_action.url }}">{{ next_action.button }}</a>
+  <p><a href="{% url 'plan' %}">Back to my plan</a></p>
+  {% elif next_action %}
+  <p>That was the last topic. Time to finish your project!</p>
+  <a class="button button-primary" href="{% url 'plan' %}#project">See your project steps</a>
+  {% else %}
+  <a class="button button-primary" href="{% url 'plan' %}">Back to my plan</a>
+  {% endif %}
+</section>
 {% else %}
 {% if struggling %}
 <section class="quiz-stuck">

@@ -190,6 +190,17 @@ class OnboardingFlowTests(IntakeContentMixin, TestCase):
         self.assertFalse(result["fits"])
         self.assertEqual(result["hours_needed"], 5)  # 300 minutes in one week
 
+    def test_paths_you_can_start_come_before_coming_soon_ones(self):
+        choices = self.step().choices
+        self.assertEqual([c.value for c in choices], ["automation", "website", "not_sure"])
+        self.assertTrue(choices[1].disabled)
+
+    def test_current_question_comes_first_and_earlier_answers_fold_away(self):
+        self.answer(choice="automation")
+        page = self.client.get(reverse("intake")).content.decode()
+        self.assertLess(page.index("one real thing"), page.index("Your answers so far (1)"))
+        self.assertIn('aria-current="step"', page)
+
     def test_unavailable_path_cannot_be_picked(self):
         self.answer(choice="website")
         self.assertEqual(self.step().step, "path")

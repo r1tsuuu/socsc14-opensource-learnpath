@@ -41,13 +41,25 @@ def plan(request):
         .order_by("order")
     )
     milestones = journey.milestones_by_week(current)
-    weeks = [
-        {"number": week, "items": list(group), "milestones": milestones.get(week, [])}
-        for week, group in groupby(items, key=lambda item: item.week)
-    ]
+    weeks = []
+    for week, group in groupby(items, key=lambda item: item.week):
+        group = list(group)
+        weeks.append({
+            "number": week,
+            "items": group,
+            "milestones": milestones.get(week, []),
+            "done": sum(1 for i in group if i.status in (PlanItem.Status.DONE, PlanItem.Status.SKIPPED)),
+        })
     reviews = journey.due_reviews(profile, current)
     starting = journey.starting_point(profile, current)
     unchecked = journey.unchecked_topic_ids(profile, items)
+    next_action = journey.next_action(profile, current, items, reviews)
+    # The week to open: the one with the next topic, else the first with anything left.
+    unfinished = [i for i in items if i.status in (PlanItem.Status.TODO, PlanItem.Status.IN_PROGRESS)]
+    current_week = next(
+        (i.week for i in unfinished if next_action and i.topic_id == next_action.topic_id),
+        unfinished[0].week if unfinished else None,
+    )
     return render(
         request,
         "learning/plan.html",
@@ -58,7 +70,10 @@ def plan(request):
             "weeks": weeks,
             "progress": current.progress_percent(),
             "project": getattr(current, "project", None),
-            "next_action": journey.next_action(profile, current, items, reviews),
+            "next_action": next_action,
+            "current_week": current_week,
+            "done_count": sum(1 for i in items if i.status == PlanItem.Status.DONE),
+            "counted": sum(1 for i in items if i.status != PlanItem.Status.SKIPPED),
             "reviews": reviews,
             "starting": starting,
             "unchecked_count": len(unchecked),
@@ -138,12 +153,15 @@ def lesson(request, topic):
     topic = _active_topic(topic)
     item = plan_item_for_topic(get_profile(request.user), topic)
     start_item(item)
+    # What to build with this topic: the project step for the week it's in.
+    build_steps = journey.milestones_by_week(item.plan).get(item.week, []) if item else []
     return render(
         request,
         "learning/lesson.html",
         {
             "topic": topic,
             "item": item,
+            "build_steps": build_steps,
             "resources": topic.resources.filter(is_active=True),
             "tips": topic.tips.all(),
             "prerequisites": topic.prerequisites.all(),
@@ -170,6 +188,18 @@ def quiz(request, topic):
     )
 
 
+def _after_pass(profile):
+    """Momentum after a pass: plan progress and the next step to go to."""
+    current = active_plan(profile)
+    if current is None:
+        return {}
+    items = list(current.items.select_related("topic").order_by("order"))
+    return {
+        "plan_progress": current.progress_percent(),
+        "next_action": journey.next_action(profile, current, items, journey.due_reviews(profile, current)),
+    }
+
+
 def quiz_result(request, topic):
     topic = _active_topic(topic)
     profile = get_profile(request.user)
@@ -188,6 +218,7 @@ def quiz_result(request, topic):
             "pass_percent": PASS_PERCENT,
             # After a couple of misses, point back to what this topic builds on.
             "struggling": not result.passed and tries >= 2,
+            **(_after_pass(profile) if result.passed else {}),
             "prerequisites": topic.prerequisites.filter(track__is_active=True),
             "resources": topic.resources.filter(is_active=True),
         },

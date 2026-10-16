@@ -433,3 +433,34 @@ class PlanPageTests(PlanTestMixin, TestCase):
         page = self.client.get(result)
         self.assertContains(page, "Stuck on this one")
         self.assertContains(page, "Look back at <a href=\"/learn/topic-1/\">Topic 1</a>")
+
+
+class UXTests(PlanTestMixin, TestCase):
+    """Momentum and focus on the plan, lesson and quiz pages."""
+
+    def setUp(self):
+        self.make_learner(hours=1)
+        self.client.force_login(self.user)
+        from .tailoring import build_plan_with_template
+        self.plan = build_plan_with_template(self.profile)
+        self.item = QuizItem.objects.create(topic=self.topics[0], prompt="x = ___", accepted_answers=["1"])
+
+    def test_only_the_current_week_is_open(self):
+        page = self.client.get(reverse("plan"))
+        self.assertEqual(page.context["current_week"], 1)
+        self.assertContains(page, "you're here", count=1)
+        self.assertContains(page, '<details class="plan-week" open>', count=1)
+        self.assertContains(page, "0 of 4 topics done")
+
+    def test_lesson_shows_the_project_step_and_puts_the_quiz_first(self):
+        page = self.client.get(reverse("lesson", args=["topic-1"]))
+        self.assertContains(page, "Use it in your project")
+        self.assertContains(page, "Add something to your project that uses Topic 1.")
+        self.assertContains(page, "mark it done without the quiz")
+
+    def test_passing_points_to_the_next_topic(self):
+        self.client.post(reverse("quiz", args=["topic-1"]), {f"item_{self.item.pk}": "1"})
+        page = self.client.get(reverse("quiz_result", args=["topic-1"]))
+        self.assertContains(page, "Topic 1 is done.")
+        self.assertContains(page, "Your plan is now 25% done.")
+        self.assertContains(page, "Next up: <strong>Topic 2</strong>")

@@ -27,6 +27,15 @@
   {% endif %}
 </section>
 
+{% if build_steps %}
+<section class="lesson-build">
+  <h2>Use it in your project</h2>
+  <p>This week's project step:</p>
+  <ul>{% for text in build_steps %}<li>{{ text }}</li>{% endfor %}</ul>
+  <p class="ai-note">Try it on your own first. Stuck? The tips below help, and a wrong first try is part of learning.</p>
+</section>
+{% endif %}
+
 {% if tips %}
 <section class="lesson-tips">
   <h2>Tips</h2>
@@ -49,6 +58,8 @@
   {% csrf_token %}
   {% if item.status == "done" %}
   <p>You've finished this topic.</p>
+  {% elif has_quiz %}
+  <button type="submit" name="status" value="done" class="button-link">I already know this, mark it done without the quiz</button>
   {% else %}
   <button type="submit" name="status" value="done" class="button">Mark done</button>
   {% endif %}

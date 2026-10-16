@@ -4,10 +4,7 @@
 
 {% block content %}
 <h1>Let's plan your learning</h1>
-<p class="onboarding-progress">
-  {{ phase }}
-  <progress value="{{ done_count }}" max="{{ step_count }}" aria-label="Onboarding progress">{{ done_count }} of {{ step_count }}</progress>
-</p>
+{% include "partials/phase_steps.html" %}
 
 <section class="chat-message chat-assistant chat-current">
   <span class="chat-author">LearnPath guide</span>
