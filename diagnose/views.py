@@ -164,6 +164,7 @@ def intake(request):
         request.session[INTAKE_RESULT_KEY] = {
             "known_topics": result["known_topics"],
             "project_idea": result["project_idea"],
+            "not_sure": result["not_sure"],
         }
         messages.success(request, history[-1]["content"])
         return redirect("intake_check")
@@ -209,5 +210,10 @@ def intake_check(request):
     return render(
         request,
         "diagnose/intake_check.html",
-        {"track": profile.track, "form": form, "has_questions": bool(questions)},
+        {
+            "track": profile.track,
+            "form": form,
+            "has_questions": bool(questions),
+            "not_sure": result.get("not_sure", False),
+        },
     )

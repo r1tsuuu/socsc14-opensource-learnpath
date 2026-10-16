@@ -1,11 +1,17 @@
 from django.contrib import admin
 
-from .forms import QuizItemForm, SkillQuestionForm, TopicForm
-from .models import QuizItem, Resource, SetupStep, SkillQuestion, Tip, Topic, Track
+from .forms import ProjectIdeaForm, QuizItemForm, SkillQuestionForm, TopicForm
+from .models import ProjectIdea, QuizItem, Resource, SetupStep, SkillQuestion, Tip, Topic, Track
 
 
 class SetupStepInline(admin.StackedInline):
     model = SetupStep
+    extra = 0
+
+
+class ProjectIdeaInline(admin.StackedInline):
+    model = ProjectIdea
+    form = ProjectIdeaForm
     extra = 0
 
 
@@ -21,7 +27,7 @@ class TrackAdmin(admin.ModelAdmin):
     list_display = ["name", "order", "is_active"]
     list_editable = ["order", "is_active"]
     prepopulated_fields = {"slug": ["name"]}
-    inlines = [TopicInline, SetupStepInline]
+    inlines = [TopicInline, SetupStepInline, ProjectIdeaInline]
 
 
 class ResourceInline(admin.TabularInline):
@@ -85,6 +91,13 @@ class QuizItemAdmin(admin.ModelAdmin):
 class SetupStepAdmin(admin.ModelAdmin):
     list_display = ["title", "track", "order"]
     list_filter = ["track"]
+
+
+@admin.register(ProjectIdea)
+class ProjectIdeaAdmin(admin.ModelAdmin):
+    form = ProjectIdeaForm
+    list_display = ["title", "track", "order", "is_active"]
+    list_filter = ["track", "is_active"]
 
 
 admin.site.register(Tip)

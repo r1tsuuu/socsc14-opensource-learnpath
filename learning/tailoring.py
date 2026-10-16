@@ -1,13 +1,15 @@
 """Tailored plans and culminating projects.
 
 The AI only chooses from the track's existing topics (unknown slugs are dropped)
-and writes a one-line reason per topic plus a small project. The rule-based
-planner still adds prerequisites, orders topics and splits weeks. Without the
-AI, the plan holds every topic the learner doesn't know and a template project.
+and writes a one-line reason per topic plus a small project, adapted from one of
+the track's curated project ideas when there are any. The rule-based planner still
+adds prerequisites, orders topics and splits weeks. Without the AI, the plan holds
+every topic the learner doesn't know and a template project (the first curated idea,
+or a generic one).
 """
 
 from assistant.service import ask_model_json
-from content.models import Topic
+from content.models import ProjectIdea, Topic
 from diagnose.models import TopicMastery
 
 from .models import PlanProject
@@ -32,13 +34,20 @@ Return only a JSON object:
     "title": "short title",
     "description": "2-3 sentences: what they build and why it fits their goal",
     "milestones": [{"topics": ["slugs this step uses"], "text": "one concrete step"}],
-    "done_when": ["3-5 checks that show the project is finished"]
+    "done_when": ["3-5 checks that show the project is finished"],
+    "idea": 0
   }
 }
 Rules: 3-5 milestones that grow the project week by week, in the same order as the topics:
 each milestone uses only topics that come at or before it in your topic list, starting
 with a small working version and adding harder parts (like files) last. No links. No code solutions. Plain English
 (or Taglish if the learner used Taglish)."""
+
+IDEAS_PROMPT = """
+Project ideas from our curators. Base the project on the one that best fits the learner's
+goal and adapt it to them (their interests, their project idea, the chosen topics). Keep a
+similar size. Set "idea" to its number. Only if none fits at all, set "idea" to 0.
+{ideas}"""
 
 
 def _known_ids(profile):
@@ -52,7 +61,11 @@ def _clean_text(value, limit):
     return " ".join(str(value or "").split())[:limit]
 
 
-def build_tailor_messages(profile, project_idea, candidates):
+def active_ideas(track):
+    return list(ProjectIdea.objects.filter(track=track, is_active=True))
+
+
+def build_tailor_messages(profile, project_idea, candidates, ideas=()):
     catalog = "\n".join(
         f"- {t.slug}: {t.title} ({t.estimated_minutes} min). {t.summary}" for t in candidates
     )
@@ -64,7 +77,11 @@ def build_tailor_messages(profile, project_idea, candidates):
         f"Project idea: {project_idea or 'none, suggest one'}\n\n"
         f"Topics they still need to learn:\n{catalog}"
     )
-    return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": learner}]
+    system = SYSTEM_PROMPT
+    if ideas:
+        listed = "\n".join(f"{i}. {idea.title}: {idea.brief}" for i, idea in enumerate(ideas, 1))
+        system += IDEAS_PROMPT.format(ideas=listed)
+    return [{"role": "system", "content": system}, {"role": "user", "content": learner}]
 
 
 def parse_selection(data, candidates):
@@ -85,7 +102,7 @@ def plan_weeks_by_slug(plan):
     return {item.topic.slug: item.week for item in plan.items.select_related("topic")}
 
 
-def parse_project(data, plan):
+def parse_project(data, plan, ideas=()):
     """Validate the AI's project. Returns field values for PlanProject, or None if unusable."""
     project = data.get("project")
     if not isinstance(project, dict):
@@ -109,14 +126,27 @@ def parse_project(data, plan):
     # Keep the AI's step order, but never let a later step fall in an earlier week.
     for previous, current in zip(milestones, milestones[1:]):
         current["week"] = max(current["week"], previous["week"])
+    idea = None
+    try:
+        number = int(project.get("idea") or 0)
+    except (TypeError, ValueError):
+        number = 0
+    if 1 <= number <= len(ideas):
+        idea = ideas[number - 1]
     done_when = [_clean_text(c, 200) for c in (project.get("done_when") or [])[:MAX_CHECKS] if str(c).strip()]
+    if not done_when and idea is not None:
+        done_when = list(idea.done_when)
     if not milestones or not done_when:
         return None
-    return {"title": title, "description": description, "milestones": milestones, "done_when": done_when}
+    return {"title": title, "description": description, "milestones": milestones,
+            "done_when": done_when, "idea": idea}
 
 
 def template_project(plan, profile):
-    """A project for when the AI is off or its answer was unusable."""
+    """A project for when the AI is off or its answer was unusable.
+
+    Uses the track's first curated idea when there is one, otherwise a generic project.
+    """
     goal = f" toward your goal: {profile.goal_text}" if profile.goal_text else ""
     by_week = {}
     for item in plan.items.select_related("topic").order_by("order"):
@@ -125,6 +155,16 @@ def template_project(plan, profile):
         {"week": week, "text": f"Add something to your project that uses {', '.join(titles)}."}
         for week, titles in sorted(by_week.items())
     ]
+    ideas = active_ideas(plan.track)
+    if ideas:
+        idea = ideas[0]
+        return {
+            "title": idea.title,
+            "description": idea.brief,
+            "milestones": milestones,
+            "done_when": list(idea.done_when) or ["It runs without errors.", "You can explain each part to a friend."],
+            "idea": idea,
+        }
     return {
         "title": f"Your {plan.track.name} mini project",
         "description": (
@@ -137,6 +177,7 @@ def template_project(plan, profile):
             "It uses something from every week of your plan.",
             "You can explain each part to a friend.",
         ],
+        "idea": None,
     }
 
 
@@ -163,13 +204,14 @@ def tailor_plan(profile, project_idea=""):
     if not candidates:
         return build_plan_with_template(profile), False
 
-    data = ask_model_json(build_tailor_messages(profile, project_idea, candidates), max_tokens=2500)
+    ideas = active_ideas(profile.track)
+    data = ask_model_json(build_tailor_messages(profile, project_idea, candidates, ideas), max_tokens=2500)
     if data is None:
         return build_plan_with_template(profile), False
 
     ids, reasons = parse_selection(data, candidates)
     plan = build_plan(profile, selected_topic_ids=ids or None, reasons=reasons)
-    fields = parse_project(data, plan)
+    fields = parse_project(data, plan, ideas)
     if fields is None:
         save_project(plan, template_project(plan, profile), PlanProject.Source.TEMPLATE)
         return plan, bool(ids)

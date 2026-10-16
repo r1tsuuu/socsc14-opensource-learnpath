@@ -78,3 +78,13 @@ class AdminPagesTests(TestCase):
         self.assertEqual(self.client.get("/admin/content/topic/add/").status_code, 200)
         self.assertEqual(self.client.get("/admin/content/topic/1/change/").status_code, 200)
         self.assertEqual(self.client.get("/admin/content/track/1/change/").status_code, 200)
+
+
+class ProjectIdeaAdminTests(TestCase):
+    def test_done_when_is_edited_one_check_per_line(self):
+        from .forms import ProjectIdeaForm
+        track = Track.objects.create(name="Python", slug="python")
+        form = ProjectIdeaForm({"track": track.pk, "title": "Quiz game", "brief": "A quiz.",
+                                "done_when": "It runs\n\n It keeps score ", "order": 0, "is_active": True})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.save().done_when, ["It runs", "It keeps score"])

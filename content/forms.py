@@ -2,7 +2,7 @@
 
 from django import forms
 
-from .models import QuizItem, SkillQuestion, Topic
+from .models import ProjectIdea, QuizItem, SkillQuestion, Topic
 
 
 class LinesField(forms.CharField):
@@ -33,6 +33,14 @@ class QuizItemForm(forms.ModelForm):
 
     class Meta:
         model = QuizItem
+        fields = "__all__"
+
+
+class ProjectIdeaForm(forms.ModelForm):
+    done_when = LinesField(required=False, help_text="One \"done when\" check per line, e.g. \"It runs without errors.\"")
+
+    class Meta:
+        model = ProjectIdea
         fields = "__all__"
 
 
