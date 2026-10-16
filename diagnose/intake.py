@@ -38,6 +38,8 @@ What you need:
 4. Which track fits best. ONLY these tracks are available:
 {tracks}
    If what they want isn't available, say so kindly and suggest the closest one.
+   If only one track is listed, don't ask them to choose: briefly tell them that's the
+   track they'll start with (more are coming soon) and move on to the next question.
 5. A small project idea they'd enjoy (suggest one if they have none).
 6. Which of the track's topics they already know, if any (they will get a quick check).
    If they aren't sure how good they are, don't push: tell them a short skill check
