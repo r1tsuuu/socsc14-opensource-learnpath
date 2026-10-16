@@ -10,6 +10,11 @@ class LearnerProfile(models.Model):
         A_LITTLE = "a_little", "I've tried a little"
         COMFORTABLE = "comfortable", "I'm fairly comfortable"
 
+    class HintStyle(models.TextChoices):
+        THINK = "think", "A hint that makes me think"
+        EXPLAIN = "explain", "A clear explanation"
+        EXAMPLE = "example", "An example I can learn from"
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="learner_profile"
     )
@@ -18,6 +23,12 @@ class LearnerProfile(models.Model):
     goal_text = models.CharField(max_length=300, blank=True)
     track = models.ForeignKey(
         "content.Track", on_delete=models.SET_NULL, null=True, blank=True, related_name="learners"
+    )
+    path = models.ForeignKey(
+        "content.Path", on_delete=models.SET_NULL, null=True, blank=True, related_name="learners"
+    )
+    hint_style = models.CharField(
+        max_length=20, choices=HintStyle.choices, blank=True, help_text="What helps them most when stuck."
     )
     email_reminders = models.BooleanField(default=True)
     onboarded = models.BooleanField(default=False)

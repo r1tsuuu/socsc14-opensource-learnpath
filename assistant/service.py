@@ -29,6 +29,12 @@ TIMEOUT_SECONDS = 20
 # Longer waits would hold the page too long, so the next model is tried instead.
 MAX_RETRY_WAIT_SECONDS = 3
 
+HINT_STYLES = {
+    "think": "They like hints that make them think, so lean on questions.",
+    "explain": "They like clear explanations, so be plain and direct about the concept.",
+    "example": "They learn from examples, so include a short, different example when you can.",
+}
+
 HINT_LEVELS = {
     1: "Ask one guiding question that points the learner toward the idea they are missing.",
     2: "Explain the concept the learner needs, in plain words, without solving their problem.",
@@ -75,6 +81,7 @@ class HelpRequest:
     screen: str = "plan"
     quiz_item: object = None
     learner_answer: str = ""
+    hint_style: str = ""  # LearnerProfile.HintStyle value: what helps this learner when stuck.
 
 
 @dataclass
@@ -110,6 +117,7 @@ def build_messages(request):
     topic = request.topic
     tips = "\n".join(f"- {t}" for t in topic_tips(topic)) or "- (none)"
     resources = "\n".join(f"- {r['title']}" for r in topic_resources(topic)) or "- (none)"
+    style = f"- {HINT_STYLES[request.hint_style]} Still follow the hint level.\n" if request.hint_style in HINT_STYLES else ""
     system = (
         "You are a patient tutor helping a beginner programmer.\n"
         f"Topic: {topic.title} ({topic.track.name}).\n"
@@ -120,6 +128,7 @@ def build_messages(request):
         "- Stay on this topic. Use only the ideas above and basic programming knowledge.\n"
         "- Never give the full solution or the exact answer to a quiz blank.\n"
         f"- This is hint level {request.hint_level} of 3. {HINT_LEVELS[request.hint_level]}\n"
+        f"{style}"
         "- Keep the reply under 120 words.\n"
         "- Reply in the learner's language: English, or Taglish if they write in Taglish.\n"
         "- If the question is not about programming, gently steer back to the topic."

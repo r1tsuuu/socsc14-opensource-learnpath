@@ -9,12 +9,12 @@ Built by Group 5 (ST2A) with CompSAt at Ateneo de Manila University. Open source
 ## How it works
 
 1. **Sign in with Google.** No passwords to manage.
-2. **Tell us your goal.** The learner types what they want in their own words ("I want to automate my org's attendance"). An AI guide asks a few follow-up questions (experience, hours per week, track, project idea), then gives a quick check only on the topics they say they already know. If the AI is off or busy, a short form and the full skill check are used instead.
+2. **Pick what you want to make.** Learners choose a skill path ("Make a website", "Automate boring tasks", "Work with data"...), not a language; the path decides the languages. Six tap-to-answer questions follow: a real project (curated ideas or their own), coding experience, topics they've used, time per week and what helps when they're stuck. They review their answers before anything is saved, then get a quick check only on the topics they say they know ("not sure" checks everything). Typing instead of tapping on the first question uses the AI to match a path; everything else works with the AI off.
 3. **Plan.** The AI picks the topics the goal needs, only from our curated list, with a reason for each. The app adds missing prerequisites, orders them, and spreads them across weeks. Every plan ends with a small project tied to the learner's goal (a template project when the AI is off).
 4. **Learn.** Each topic links to vetted free resources, with tips from our team and a short fill-in-the-blank quiz.
 5. **Get help.** The AI helper gives hints, never full answers, using only that topic's content. When the daily AI limit runs out, learners still get the tips and links.
 
-Tracks: Python, JavaScript, HTML, CSS, Java, SQL.
+Paths (edited in admin): Make a website, Automate boring tasks, Work with data, Make games and fun projects, Get ahead in CS class. A path is offered once its first track is active. Tracks: Python, JavaScript, HTML, CSS, Java, SQL.
 
 ## Tech stack
 
@@ -56,7 +56,7 @@ Open http://localhost:8000 for the app and http://localhost:8000/admin for conte
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google login |
 | `GROQ_API_KEY`, `GROQ_MODEL`, `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_MODEL` | AI helper (optional locally) |
 | `AI_DAILY_LIMIT` | AI hint messages per learner per day |
-| `GROQ_PLAN_MODEL`, `AI_INTAKE_DAILY_LIMIT` | Model for the AI guide and plans; plan conversations per learner per day (default 2) |
+| `GROQ_PLAN_MODEL`, `AI_INTAKE_DAILY_LIMIT` | Model for tailored plans; AI-tailored plans per learner per day (default 2; past the cap the plan is built without AI) |
 
 Ask a teammate for shared keys. Never commit `.env`.
 
@@ -135,7 +135,7 @@ DATABASE_URL="sqlite:///$PWD/db.sqlite3" python manage.py test
 | Setup and deployment | Done. Live on Render with Neon Postgres |
 | Content admin | Done. Sample Python content in `fixtures/content.json` |
 | Google login | Done |
-| Diagnose | Done. AI guide chat at `/start/`, with the form at `/about/` as fallback |
+| Diagnose | Done. Guided onboarding at `/start/`, with the form at `/about/` as fallback |
 | Learning Plan | Done |
 | Lessons and quiz | Done |
 | AI helper | Service done: `POST /help/ask/` plus a staff test page at `/help/test/`. The help panel on the plan is M8 |
@@ -147,6 +147,7 @@ Update this table as parts are finished, and list known bugs below.
 ### Known issues
 
 - Quizzes pass at 70%. With 2 or 3 items per topic that means every answer must be right (2 of 3 is 67%). Write 4 or more items for a topic if one mistake should still pass.
+- Plans still use only a path's first track (e.g. HTML for "Make a website"). Plans that continue into the next track come with the project-based plan.
 - Passing the quiz on the last topic doesn't lead anywhere special yet; the Finish screen is part of M13.
 - Marking a topic done by hand records it as known (source "manual"), so a rebuilt plan skips it. Undo reverses that.
 

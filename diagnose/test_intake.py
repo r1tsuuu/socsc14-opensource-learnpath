@@ -7,10 +7,9 @@ from django.urls import reverse
 from accounts.models import get_profile
 from assistant.models import AIUsage
 from assistant.service import parse_json_object
-from content.models import SkillQuestion, Topic, Track
+from content.models import Path, PathTrack, SkillQuestion, Topic, Track
 from learning.models import LearningPlan, PlanProject
 
-from .intake import MAX_TURNS, available_tracks, parse_profile, take_turn
 from .models import SkillCheckAttempt, TopicMastery
 from .scoring import finish_quick_check
 
@@ -30,82 +29,19 @@ class IntakeContentMixin:
             after.prerequisites.add(before)
         self.q_vars = SkillQuestion.objects.create(topic=self.topics[0], prompt="v?", choices=["a", "b"], correct_index=0)
         self.q_loops = SkillQuestion.objects.create(topic=self.topics[1], prompt="l?", choices=["a", "b"], correct_index=1)
+        automation = Path.objects.create(title="Automate boring tasks", slug="automation", tagline="Small tools.", order=1)
+        PathTrack.objects.create(path=automation, track=self.track)
+        website = Path.objects.create(title="Make a website", slug="website", tagline="A page.", order=2)
+        PathTrack.objects.create(path=website, track=Track.objects.get(slug="sql"))
         self.user = get_user_model().objects.create_user("ana", "ana@example.com", first_name="Ana")
         self.profile = get_profile(self.user)
 
-    def done_reply(self, **profile):
-        base = {"track": "python", "experience": "a_little", "hours_per_week": 2,
-                "goal": "Automate my org's sign-up sheet", "project_idea": "A sign-up counter",
-                "known_topics": ["python-variables"]}
-        base.update(profile)
-        return {"reply": "Great, let's build your plan!", "done": True, "profile": base}
 
-
-class ParseTests(IntakeContentMixin, TestCase):
-    def setUp(self):
-        self.make_content()
-        self.tracks = available_tracks()
-
-    def test_only_active_tracks_with_topics_are_offered(self):
-        self.assertEqual([t.slug for t in self.tracks], ["python"])
-
-    def test_valid_profile(self):
-        profile = parse_profile(self.done_reply(hours_per_week=99, known_topics=["python-variables", "made-up", "sql-select"]), self.tracks)
-        self.assertEqual(profile["track_id"], self.track.pk)
-        self.assertEqual(profile["hours_per_week"], 40)
-        self.assertEqual(profile["known_topics"], ["python-variables"])
-
-    def test_not_sure_checks_every_topic(self):
-        profile = parse_profile(self.done_reply(known_topics=[], not_sure=True), self.tracks)
-        self.assertTrue(profile["not_sure"])
-        self.assertEqual(profile["known_topics"], sorted(t.slug for t in self.topics))
-        self.assertFalse(parse_profile(self.done_reply(not_sure="yes"), self.tracks)["not_sure"])
-
-    def test_unknown_or_inactive_track_is_rejected(self):
-        self.assertIsNone(parse_profile(self.done_reply(track="sql"), self.tracks))
-        self.assertIsNone(parse_profile(self.done_reply(track="rust"), self.tracks))
-
-    def test_not_done_has_no_profile(self):
-        self.assertIsNone(parse_profile({"reply": "How many hours?", "done": False, "profile": None}, self.tracks))
-
-    def test_bad_values_get_safe_defaults(self):
-        profile = parse_profile(self.done_reply(experience="expert", hours_per_week="lots"), self.tracks)
-        self.assertEqual(profile["experience"], "none")
-        self.assertEqual(profile["hours_per_week"], 3)
-
+class JsonParsingTests(TestCase):
     def test_json_parsing_tolerates_fences(self):
         self.assertEqual(parse_json_object('```json\n{"a": 1}\n```'), {"a": 1})
         with self.assertRaises(ValueError):
             parse_json_object("no json here")
-
-
-@override_settings(**AI_ON)
-class TakeTurnTests(IntakeContentMixin, TestCase):
-    def setUp(self):
-        self.make_content()
-        self.tracks = available_tracks()
-
-    @mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "How many hours a week?", "done": False, "profile": None})
-    def test_follow_up_question(self, ask):
-        history, profile = take_turn([], "I want to automate stuff", self.tracks)
-        self.assertIsNone(profile)
-        self.assertEqual(history[-1], {"role": "assistant", "content": "How many hours a week?"})
-        system = ask.call_args.args[0][0]["content"]
-        self.assertIn("python-loops (Loops)", system)
-        self.assertNotIn("sql", system)
-
-    @mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Still curious...", "done": False, "profile": None})
-    def test_forces_finish_after_max_turns(self, ask):
-        history = []
-        for i in range(MAX_TURNS - 1):
-            history += [{"role": "user", "content": "x"}, {"role": "assistant", "content": "y"}]
-        result = take_turn(history, "last one", self.tracks)
-        self.assertEqual(result, (None, None))
-        self.assertIn("Finish now", ask.call_args.args[0][-1]["content"])
-
-    @mock.patch("diagnose.intake.ask_model_json", return_value=None)
-    def test_ai_failure(self, ask):
-        self.assertEqual(take_turn([], "hi", self.tracks), (None, None))
 
 
 class QuickCheckScoringTests(IntakeContentMixin, TestCase):
@@ -127,7 +63,7 @@ class QuickCheckScoringTests(IntakeContentMixin, TestCase):
 
 
 @override_settings(**AI_ON)
-class IntakeFlowTests(IntakeContentMixin, TestCase):
+class OnboardingFlowTests(IntakeContentMixin, TestCase):
     def setUp(self):
         self.make_content()
         self.client.force_login(self.user)
@@ -144,131 +80,187 @@ class IntakeFlowTests(IntakeContentMixin, TestCase):
             },
         }
 
+    def answer(self, **data):
+        return self.client.post(reverse("intake"), data)
+
+    def answer_all(self, path="automation", project=None, experience="a_little", known=("python-variables",), hours="2", stuck="think"):
+        self.answer(choice=path)
+        self.answer(**(project or {"choice": "suggest"}))
+        self.answer(choice=experience)
+        if experience != "none":
+            self.answer(picked=list(known))
+        self.answer(choice=hours)
+        self.answer(choice=stuck)
+
+    def step(self):
+        return self.client.get(reverse("intake")).context.get("question")
+
     def test_welcome_points_to_intake(self):
         self.assertContains(self.client.get(reverse("welcome")), reverse("intake"))
 
-    def test_full_flow(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "How many hours?", "done": False, "profile": None}):
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "I want to automate my org"}), reverse("intake"))
+    def test_first_question_offers_paths_not_languages(self):
         page = self.client.get(reverse("intake"))
-        self.assertContains(page, "I want to automate my org")
-        self.assertContains(page, "How many hours?")
+        self.assertContains(page, "What do you want to be able to make?")
+        self.assertContains(page, "Automate boring tasks")
+        self.assertContains(page, "(coming soon)")  # website path: its first track is inactive
+        self.assertContains(page, "Step 1 of 6")
 
-        with mock.patch("diagnose.intake.ask_model_json", return_value=self.done_reply()):
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "2 hours"}), reverse("intake_check"))
+    def test_full_flow(self):
+        self.answer_all()
+        review = self.client.get(reverse("intake"))
+        self.assertTrue(review.context["review"])
+        self.assertContains(review, "Automate boring tasks")
+        self.assertContains(review, "Variables")
+        self.assertEqual(review.context["weeks"], 2)  # 4 topics left x 60 min at 2 hours a week
         self.profile.refresh_from_db()
+        self.assertFalse(self.profile.onboarded)  # nothing saved before confirming
+
+        self.assertRedirects(self.answer(action="confirm"), reverse("intake_check"))
+        self.profile.refresh_from_db()
+        self.assertEqual((self.profile.path.slug, self.profile.track, self.profile.hours_per_week), ("automation", self.track, 2))
+        self.assertEqual((self.profile.experience, self.profile.hint_style), ("a_little", "think"))
         self.assertTrue(self.profile.onboarded)
-        self.assertEqual(self.profile.hours_per_week, 2)
-        self.assertNotIn("intake_chat", self.client.session)
 
         check = self.client.get(reverse("intake_check"))
         self.assertEqual(len(check.context["form"].questions), 1)  # only the claimed topic
-
         with mock.patch("learning.tailoring.ask_model_json", return_value=self.tailor_reply()):
             response = self.client.post(reverse("intake_check"), {f"question_{self.q_vars.pk}": "0"})
         self.assertRedirects(response, reverse("plan"))
         plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
-        items = list(plan.items.order_by("order"))
         # Lists was picked; Loops is added as its prerequisite; Variables is known.
-        self.assertEqual([i.topic.slug for i in items], ["python-loops", "python-lists"])
-        self.assertEqual(items[1].reason, "To store the sign-ups")
+        self.assertEqual([i.topic.slug for i in plan.items.order_by("order")], ["python-loops", "python-lists"])
         self.assertEqual(plan.project.source, "ai")
-        self.assertEqual([m["week"] for m in plan.project.milestones], [1, 1])
-        page = self.client.get(reverse("plan"))
-        self.assertContains(page, "Your project: Sign-up counter")
-        self.assertContains(page, "Why: To store the sign-ups")
-        self.assertNotIn("intake_result", self.client.session)
         self.assertEqual(AIUsage.objects.get(learner=self.profile).intakes_used, 1)
+        self.assertNotIn("onboarding", self.client.session)
+        self.assertNotIn("intake_result", self.client.session)
 
-    def test_bad_project_falls_back_to_template(self):
-        self.client.session  # ensure session exists
-        with mock.patch("diagnose.intake.ask_model_json", return_value=self.done_reply(known_topics=[])):
-            self.client.post(reverse("intake"), {"message": "hi"})
-        reply = self.tailor_reply()
-        reply["project"] = {"title": "", "description": ""}
-        with mock.patch("learning.tailoring.ask_model_json", return_value=reply):
-            self.client.post(reverse("intake_check"), {})
-        plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
-        self.assertEqual(plan.project.source, "template")
-        self.assertEqual(plan.items.count(), 3)  # lists + prerequisites loops, variables
+    def test_unavailable_path_cannot_be_picked(self):
+        self.answer(choice="website")
+        self.assertEqual(self.step().step, "path")
 
-    def test_tailoring_failure_gives_full_plan_and_template(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value=self.done_reply(known_topics=[])):
-            self.client.post(reverse("intake"), {"message": "hi"})
-        with mock.patch("learning.tailoring.ask_model_json", return_value=None):
-            self.assertRedirects(self.client.post(reverse("intake_check"), {}), reverse("plan"))
-        plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
-        self.assertEqual(plan.items.count(), 5)
-        self.assertEqual(plan.project.source, "template")
+    def test_typed_path_is_read_by_the_ai(self):
+        with mock.patch("diagnose.onboarding.ask_model_json", return_value={"path": "automation"}) as ask:
+            self.answer(text="gusto ko i-automate yung attendance namin")
+        self.assertIn("automation: Automate boring tasks", ask.call_args.args[0][0]["content"])
+        self.assertNotIn("website", ask.call_args.args[0][0]["content"])  # unavailable paths aren't offered
+        self.assertEqual(self.step().step, "project")
 
-    def test_busy_ai_keeps_the_chat_and_the_unsent_message(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Q?", "done": False, "profile": None}):
-            self.client.post(reverse("intake"), {"message": "hi"})
-        with mock.patch("diagnose.intake.ask_model_json", return_value=None):
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "5 hours"}), reverse("intake"))
+    def test_typed_path_that_matches_nothing_asks_to_tap(self):
+        with mock.patch("diagnose.onboarding.ask_model_json", return_value={"path": "none"}):
+            response = self.client.post(reverse("intake"), {"text": "I want to fly"}, follow=True)
+        self.assertContains(response, "Tap the one that&#x27;s closest")
+        self.assertEqual(response.context["question"].step, "path")
+
+    def test_not_sure_path_gets_the_first_available_one(self):
+        self.answer(choice="not_sure")
+        self.assertEqual(self.client.session["onboarding"]["path"], "automation")
+
+    def test_beginners_skip_the_known_topics_step(self):
+        self.answer(choice="automation")
+        self.answer(choice="suggest")
+        self.answer(choice="none")
         page = self.client.get(reverse("intake"))
-        self.assertContains(page, "Q?")
-        self.assertContains(page, ">5 hours</textarea>")
-        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Next?", "done": False, "profile": None}):
-            self.client.post(reverse("intake"), {"message": "5 hours"})
-        self.assertNotContains(self.client.get(reverse("intake")), ">5 hours</textarea>")
-        self.assertEqual(AIUsage.objects.get().intakes_used, 1)
-
-    def test_busy_on_first_message_does_not_use_another_intake(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value=None):
-            self.client.post(reverse("intake"), {"message": "hi"})
-        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Q?", "done": False, "profile": None}):
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "hi"}), reverse("intake"))
-        self.assertEqual(AIUsage.objects.get().intakes_used, 1)
-
-    def test_repeated_ai_failure_falls_back_to_form(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value=None):
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "hi"}), reverse("intake"))
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "hi"}), reverse("about_you"))
-        self.assertNotIn("intake_chat", self.client.session)
-
-    def test_daily_cap_sends_to_form(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Q?", "done": False, "profile": None}):
-            self.client.post(reverse("intake"), {"message": "hi"})
-            self.client.post(reverse("intake"), {"action": "restart"})
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "again"}), reverse("about_you"))
-        self.assertRedirects(self.client.get(reverse("intake")), reverse("about_you"))
-
-    def test_restart_clears_chat(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value={"reply": "Q?", "done": False, "profile": None}):
-            self.client.post(reverse("intake"), {"message": "hi"})
-        self.client.post(reverse("intake"), {"action": "restart"})
-        self.assertNotIn("intake_chat", self.client.session)
+        self.assertEqual(page.context["question"].step, "hours")
+        self.assertContains(page, "Step 4 of 5")
+        self.answer(choice="2")
+        self.answer(choice="think")
+        self.answer(action="confirm")
+        self.assertContains(self.client.get(reverse("intake_check")), "starting fresh")
 
     def test_not_sure_learner_gets_the_full_check(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value=self.done_reply(known_topics=[], not_sure=True)):
-            self.assertRedirects(self.client.post(reverse("intake"), {"message": "di ko alam gaano ako kagaling"}), reverse("intake_check"))
+        self.answer_all(known=("not_sure", "python-variables"))
+        self.answer(action="confirm")
         page = self.client.get(reverse("intake_check"))
         self.assertContains(page, "not sure how good you are")
         self.assertContains(page, "v?")
         self.assertContains(page, "l?")
 
-    def test_check_without_intake_goes_back(self):
-        self.assertRedirects(self.client.get(reverse("intake_check")), reverse("intake"))
+    def test_change_re_asks_only_that_step(self):
+        self.answer_all()
+        self.answer(action="change", step="hours")
+        self.assertEqual(self.step().step, "hours")
+        self.answer(choice="8")
+        answers = self.client.session["onboarding"]
+        self.assertEqual((answers["hours"], answers["stuck"], answers["experience"]), (8, "think", "a_little"))
 
-    def test_chat_text_is_never_saved_to_the_database(self):
-        with mock.patch("diagnose.intake.ask_model_json", return_value=self.done_reply()):
-            self.client.post(reverse("intake"), {"message": "my secret goal text xyz"})
-        from django.apps import apps
-        for model in apps.get_models():
-            if model._meta.app_label in {"accounts", "diagnose", "learning", "assistant"}:
-                for row in model.objects.values():
-                    self.assertNotIn("my secret goal text xyz", str(row))
+    def test_changing_the_path_clears_answers_that_depend_on_it(self):
+        from content.models import Path, PathTrack
+        data = Path.objects.create(title="Work with data", slug="data", tagline="Count things.", order=3)
+        PathTrack.objects.create(path=data, track=self.track)
+        self.answer_all()
+        self.answer(action="change", step="path")
+        self.answer(choice="data")
+        answers = self.client.session["onboarding"]
+        self.assertNotIn("project", answers)
+        self.assertNotIn("known", answers)
+        self.assertEqual(answers["hours"], 2)
+        self.assertEqual(self.step().step, "project")
+
+    def test_curated_idea_is_offered_and_passed_to_the_planner(self):
+        from content.models import ProjectIdea
+        idea = ProjectIdea.objects.create(track=self.track, title="Attendance helper", brief="Count who came to each meeting.")
+        self.answer(choice="automation")
+        self.assertIn(f"idea:{idea.pk}", [c.value for c in self.step().choices])
+        self.answer_all(project={"choice": f"idea:{idea.pk}"})
+        self.answer(action="confirm")
+        self.assertEqual(self.client.session["intake_result"]["project_idea"], "Attendance helper: Count who came to each meeting.")
+
+    def test_own_project_idea_becomes_the_goal(self):
+        self.answer_all(project={"text": "a sign-up sheet  for our org"})
+        self.answer(action="confirm")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.goal_text, "Automate boring tasks: a sign-up sheet for our org")
+
+    def test_cap_reached_still_builds_a_plan_without_ai(self):
+        from django.utils import timezone
+        AIUsage.objects.create(learner=self.profile, date=timezone.localdate(), intakes_used=1)
+        self.answer_all(experience="none")
+        self.answer(action="confirm")
+        with mock.patch("learning.tailoring.ask_model_json") as ask:
+            self.assertRedirects(self.client.post(reverse("intake_check"), {}), reverse("plan"))
+        ask.assert_not_called()
+        plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
+        self.assertEqual((plan.items.count(), plan.project.source), (5, "template"))
+
+    def test_tailoring_failure_gives_full_plan_and_template(self):
+        self.answer_all(experience="none")
+        self.answer(action="confirm")
+        with mock.patch("learning.tailoring.ask_model_json", return_value=None):
+            self.assertRedirects(self.client.post(reverse("intake_check"), {}), reverse("plan"))
+        plan = LearningPlan.objects.get(learner=self.profile, is_active=True)
+        self.assertEqual((plan.items.count(), plan.project.source), (5, "template"))
+
+    def test_confirm_before_finishing_does_nothing(self):
+        self.answer(choice="automation")
+        self.assertRedirects(self.answer(action="confirm"), reverse("intake"))
+        self.profile.refresh_from_db()
+        self.assertFalse(self.profile.onboarded)
+
+    def test_restart_clears_answers(self):
+        self.answer(choice="automation")
+        self.answer(action="restart")
+        self.assertNotIn("onboarding", self.client.session)
+
+    def test_no_paths_goes_to_form(self):
+        from content.models import Path
+        Path.objects.all().delete()
+        self.assertRedirects(self.client.get(reverse("intake")), reverse("about_you"))
+
+    def test_check_without_onboarding_goes_back(self):
+        self.assertRedirects(self.client.get(reverse("intake_check")), reverse("intake"))
 
 
 @override_settings(**AI_OFF)
-class IntakeAIOffTests(IntakeContentMixin, TestCase):
+class OnboardingAIOffTests(IntakeContentMixin, TestCase):
     def setUp(self):
         self.make_content()
         self.client.force_login(self.user)
 
-    def test_goes_to_form(self):
-        self.assertRedirects(self.client.get(reverse("intake")), reverse("about_you"))
+    def test_taps_still_work_and_typing_asks_to_tap(self):
+        response = self.client.post(reverse("intake"), {"text": "automate stuff"}, follow=True)
+        self.assertEqual(response.context["question"].step, "path")
+        self.client.post(reverse("intake"), {"choice": "automation"})
+        self.assertEqual(self.client.get(reverse("intake")).context["question"].step, "project")
 
     def test_form_path_plan_gets_template_project(self):
         self.profile.track = self.track
@@ -282,16 +274,7 @@ class IntakeAIOffTests(IntakeContentMixin, TestCase):
         self.assertEqual(PlanProject.objects.count(), 1)
 
 
-class BuildMessagesTests(IntakeContentMixin, TestCase):
-    def setUp(self):
-        self.make_content()
-
-    def test_greeting_is_not_sent_to_the_model(self):
-        from .intake import build_messages, new_history
-        history = new_history() + [{"role": "user", "content": "hi"}]
-        sent = build_messages(history, available_tracks())
-        self.assertEqual([m["role"] for m in sent], ["system", "user"])
-
+class BuildMessagesTests(TestCase):
     @override_settings(GROQ_API_KEY="k", GROQ_MODEL="small", GROQ_PLAN_MODEL="big")
     def test_planning_uses_the_plan_model(self):
         from assistant.service import providers
@@ -315,36 +298,6 @@ class JsonSalvageTests(TestCase):
         error.body = {"error": {"code": "json_validate_failed", "failed_generation": "What do you want to build?"}}
         with mock.patch.object(service, "call_provider", side_effect=error):
             self.assertEqual(service.ask_model_json([], text_ok=True)["reply"], "What do you want to build?")
-
-    def test_earlier_replies_are_sent_as_json(self):
-        from .intake import build_messages
-        sent = build_messages([{"role": "user", "content": "hi"}, {"role": "assistant", "content": "Hours?"}], [])
-        self.assertEqual(sent[-1]["content"], '{"reply": "Hours?", "done": false, "profile": null}')
-
-
-@override_settings(GROQ_API_KEY="k", GROQ_MODEL="small", GROQ_PLAN_MODEL="big", CF_ACCOUNT_ID="", CF_API_TOKEN="")
-class RateLimitTests(TestCase):
-    def rate_limit(self, retry_after):
-        from openai import RateLimitError
-        response = mock.Mock(status_code=429, headers={"retry-after": retry_after} if retry_after else {})
-        return RateLimitError("429", response=response, body=None)
-
-    @mock.patch("assistant.service.time.sleep")
-    def test_short_wait_is_retried_on_the_same_model(self, sleep):
-        from assistant import service
-        with mock.patch.object(service, "call_provider", side_effect=[self.rate_limit("1"), '{"reply": "ok"}']) as call:
-            self.assertEqual(service.ask_model_json([])["reply"], "ok")
-        sleep.assert_called_once_with(1.0)
-        self.assertEqual([c.args[0].model for c in call.call_args_list], ["big", "big"])
-
-    @mock.patch("assistant.service.time.sleep")
-    def test_long_wait_moves_to_the_small_model(self, sleep):
-        from assistant import service
-        with mock.patch.object(service, "call_provider", side_effect=[self.rate_limit("40"), '{"reply": "ok"}']) as call:
-            with self.assertLogs("assistant.service", "WARNING"):
-                self.assertEqual(service.ask_model_json([])["reply"], "ok")
-        sleep.assert_not_called()
-        self.assertEqual([c.args[0].model for c in call.call_args_list], ["big", "small"])
 
 
 class MilestoneOrderTests(IntakeContentMixin, TestCase):

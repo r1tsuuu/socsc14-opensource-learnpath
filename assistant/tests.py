@@ -89,6 +89,11 @@ class ServiceTests(AssistantTestMixin, TestCase):
         self.assertIn("similar but different example", text)
         self.assertIn("120 words", text)
 
+    def test_hint_style_shapes_the_prompt(self):
+        text = build_messages(self.request(hint_style="example"))[0]["content"]
+        self.assertIn("learn from examples", text)
+        self.assertNotIn("learn from examples", build_messages(self.request())[0]["content"])
+
     @mock.patch("assistant.service.call_provider", return_value="hint")
     def test_question_text_is_never_stored(self, call):
         ask(self.learner, self.request())

@@ -20,6 +20,53 @@ class Track(models.Model):
         return self.name
 
 
+class Path(models.Model):
+    """A skill learners pick by what they want to make (e.g. "Make a website").
+
+    Learners choose a path, not a language: the path decides which tracks they learn,
+    in order. A path is offered once its first track is active.
+    """
+
+    title = models.CharField(max_length=100, help_text='What they can make, e.g. "Make a website".')
+    slug = models.SlugField(unique=True)
+    tagline = models.CharField(
+        max_length=200, help_text='Real examples, e.g. "A page for your org, a portfolio, an event site."'
+    )
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    tracks = models.ManyToManyField(Track, through="PathTrack", related_name="paths")
+
+    class Meta:
+        ordering = ["order", "title"]
+
+    def __str__(self):
+        return self.title
+
+    def ordered_tracks(self):
+        return [pt.track for pt in self.path_tracks.select_related("track").order_by("order", "pk")]
+
+    def first_track(self):
+        tracks = self.ordered_tracks()
+        return tracks[0] if tracks else None
+
+    def is_available(self):
+        track = self.first_track()
+        return bool(self.is_active and track and track.is_active and track.topics.exists())
+
+
+class PathTrack(models.Model):
+    path = models.ForeignKey(Path, on_delete=models.CASCADE, related_name="path_tracks")
+    track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="+")
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["path", "order"]
+        constraints = [models.UniqueConstraint(fields=["path", "track"], name="unique_track_per_path")]
+
+    def __str__(self):
+        return f"{self.path}: {self.track}"
+
+
 class Topic(models.Model):
     track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="topics")
     title = models.CharField(max_length=200)

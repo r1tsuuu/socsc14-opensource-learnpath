@@ -58,6 +58,7 @@ def ask(request):
         screen=screen,
         quiz_item=quiz_item,
         learner_answer=str(data.get("learner_answer") or "")[:MAX_QUESTION_LENGTH],
+        hint_style=learner.hint_style,
     )
     return JsonResponse(ask_service(learner, help_request).as_dict())
 
