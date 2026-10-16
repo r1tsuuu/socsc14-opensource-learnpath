@@ -4,37 +4,14 @@
 
 {% block content %}
 <h1>Let's plan your learning</h1>
-<p class="onboarding-progress">
-  {{ phase }}
-  <progress value="{{ done_count }}" max="{{ step_count }}" aria-label="Onboarding progress">{{ done_count }} of {{ step_count }}</progress>
-</p>
+{% include "partials/phase_steps.html" %}
 
-{% if not review %}
-<ol class="chat">
-  {% for item in transcript %}
-  <li class="chat-message chat-assistant">
-    <span class="chat-author">LearnPath guide</span>
-    <p class="chat-text">{{ item.question }}</p>
-  </li>
-  <li class="chat-message chat-user">
-    <span class="chat-author">You</span>
-    <p class="chat-text">{{ item.answer }}</p>
-    <form class="chat-change" method="post">
-      {% csrf_token %}
-      <input type="hidden" name="step" value="{{ item.step }}">
-      <button type="submit" name="action" value="change" class="button-link">Change</button>
-    </form>
-  </li>
-  {% endfor %}
-
-  {% if question %}
-  <li class="chat-message chat-assistant chat-current">
-    <span class="chat-author">LearnPath guide</span>
-    <p class="chat-text chat-question">{{ question.title }}</p>
-    <p class="chat-help">{{ question.help }}</p>
-  </li>
-  {% endif %}
-</ol>
+{% if question %}
+<section class="chat-message chat-assistant chat-current" aria-labelledby="current-question">
+  <span class="chat-author">LearnPath guide</span>
+  <p class="chat-text chat-question" id="current-question">{{ question.title }}</p>
+  <p class="chat-help">{{ question.help }}</p>
+</section>
 {% endif %}
 
 {% if question %}
@@ -71,6 +48,27 @@
     <button type="submit" class="button">Send</button>
   </div>
 </form>
+{% endif %}
+
+{% if transcript %}
+<details class="answers-so-far">
+  <summary>Your answers so far ({{ transcript|length }})</summary>
+  <dl class="review-list">
+    {% for item in transcript %}
+    <div class="review-row">
+      <dt>{{ item.question }}</dt>
+      <dd>{{ item.answer }}</dd>
+      <dd>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="{{ item.step }}">
+          <button type="submit" name="action" value="change" class="button-link">Change</button>
+        </form>
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+</details>
 {% endif %}
 {% endif %}
 

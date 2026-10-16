@@ -2,6 +2,7 @@
   <a class="navbar-brand" href="{% url 'home' %}">LearnPath</a>
   {% if user.is_authenticated %}
   <nav class="navbar-links">
+    <a href="{% url 'home' %}">My plan</a>
     <form class="navbar-logout" method="post" action="{% url 'account_logout' %}">
       {% csrf_token %}
       <button type="submit" class="button-link">Log out</button>

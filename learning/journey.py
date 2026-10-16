@@ -29,6 +29,7 @@ class NextAction:
     text: str
     url: str
     button: str
+    topic_id: int = None
 
 
 def due_reviews(profile, plan):
@@ -65,14 +66,14 @@ def next_action(profile, plan, items, reviews):
         return NextAction(
             "review", f"Quick review: {topic.title}",
             "You learned this a while ago. A short quiz now helps it stick.",
-            reverse("quiz", args=[topic.slug]), "Take the review quiz",
+            reverse("quiz", args=[topic.slug]), "Take the review quiz", topic.pk,
         )
     for status, kind, button in ((PlanItem.Status.IN_PROGRESS, "continue", "Continue"),
                                  (PlanItem.Status.TODO, "start", "Start")):
         item = next((i for i in items if i.status == status), None)
         if item is not None:
             text = item.reason or item.topic.summary or "Read the links, try things out, then take the short quiz."
-            return NextAction(kind, item.topic.title, text, reverse("lesson", args=[item.topic.slug]), button)
+            return NextAction(kind, item.topic.title, text, reverse("lesson", args=[item.topic.slug]), button, item.topic_id)
     project = getattr(plan, "project", None)
     if project is not None:
         return NextAction(

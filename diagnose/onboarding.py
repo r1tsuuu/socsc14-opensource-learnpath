@@ -38,12 +38,22 @@ DEFAULT_HOURS = 3
 
 STEPS = ["path", "project", "experience", "known", "check", "hours", "deadline", "stuck"]
 # Shown above each question instead of a step count, since beginners skip steps.
+PHASE_NAMES = ["Your goal", "Where you're starting", "Fitting it to you", "Review"]
 PHASES = {
-    "path": "Your goal", "project": "Your goal",
-    "experience": "Where you're starting", "known": "Where you're starting", "check": "Where you're starting",
-    "hours": "Your time", "deadline": "Your time", "stuck": "How you like help",
-    "review": "Check your answers",
+    "path": PHASE_NAMES[0], "project": PHASE_NAMES[0],
+    "experience": PHASE_NAMES[1], "known": PHASE_NAMES[1], "check": PHASE_NAMES[1],
+    "hours": PHASE_NAMES[2], "deadline": PHASE_NAMES[2], "stuck": PHASE_NAMES[2],
+    "review": PHASE_NAMES[3],
 }
+
+
+def phase_steps(step):
+    """The four phases, each marked done, current or upcoming, for the stepper."""
+    current = PHASE_NAMES.index(PHASES[step])
+    return [
+        {"name": name, "state": "done" if i < current else "current" if i == current else "upcoming"}
+        for i, name in enumerate(PHASE_NAMES)
+    ]
 # Answers that depend on an earlier one, cleared when that one changes.
 DEPENDENTS = {
     "path": ("project", "known", "check"),
@@ -196,9 +206,10 @@ def next_step(answers):
 def question_for(step, answers):
     path = get_path(answers.get("path", ""))
     if step == "path":
+        # Paths learners can start come first; "coming soon" ones shouldn't be the first thing seen.
         choices = [
             Choice(p.slug, p.title, p.tagline if available else f"{p.tagline} (coming soon)", not available)
-            for p, available in offered_paths()
+            for p, available in sorted(offered_paths(), key=lambda pair: not pair[1])
         ]
         choices.append(Choice(NOT_SURE, "I'm not sure yet", "We'll start you with a great first skill."))
         return Question(

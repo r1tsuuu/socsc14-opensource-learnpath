@@ -6,7 +6,13 @@
 {% block content %}
 <section class="login">
   <h1>LearnPath</h1>
-  <p class="login-intro">Learn to code at your own pace, with a plan made for you and hints when you get stuck.</p>
+  <p class="login-intro">Learn to code by building something you actually want to make, one small step at a time.</p>
+  <ul class="login-points">
+    <li><strong>A plan built around your project</strong>, like a page for your org or a tool for a chore.</li>
+    <li><strong>The best free resources</strong>, from official docs, MDN, freeCodeCamp and W3Schools, picked for you.</li>
+    <li><strong>Hints when you're stuck</strong>, never just the answer, so you actually learn it.</li>
+  </ul>
   <a class="button button-primary" href="{% provider_login_url 'google' process='login' %}">Continue with Google</a>
+  <p class="login-note">Free, open source, and made by Ateneo students with CompSAt. We only use your Google name and email to sign you in.</p>
 </section>
 {% endblock %}
