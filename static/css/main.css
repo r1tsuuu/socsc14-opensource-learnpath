@@ -106,8 +106,17 @@ fieldset {
   overflow-x: auto;
 }
 
+.skill-questions {
+  list-style: none;
+  padding: 0;
+}
+
 .skill-question {
   margin-bottom: 1.5rem;
+}
+
+.skill-question-number {
+  font-weight: bold;
 }
 
 .topic-result-reason {

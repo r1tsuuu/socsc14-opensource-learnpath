@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Page not found · LearnPath{% endblock %}
+
+{% block content %}
+<h1>Page not found</h1>
+<p>We couldn't find that page. The link may be old, or the topic may have moved.</p>
+<p><a class="button button-primary" href="{% url 'home' %}">Back to my plan</a></p>
+{% endblock %}
