@@ -116,7 +116,11 @@ DATABASE_URL="<production database url>" python manage.py dumpdata content --ind
 python manage.py test
 ```
 
-Tests also run on every pull request (GitHub Actions, `.github/workflows/tests.yml`).
+There is no CI, so run the tests locally before you merge. If `.env` points `DATABASE_URL` at production, run them against SQLite instead:
+
+```bash
+DATABASE_URL="sqlite:///$PWD/db.sqlite3" python manage.py test
+```
 
 ## Contributing
 
