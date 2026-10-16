@@ -17,7 +17,7 @@
 <form class="chat-form" method="post">
   {% csrf_token %}
   <label for="chat-message" class="chat-label">Your message</label>
-  <textarea id="chat-message" name="message" rows="3" maxlength="{{ max_length }}" required autofocus></textarea>
+  <textarea id="chat-message" name="message" rows="3" maxlength="{{ max_length }}" required autofocus>{{ draft }}</textarea>
   <button type="submit" class="button button-primary">Send</button>
 </form>
 

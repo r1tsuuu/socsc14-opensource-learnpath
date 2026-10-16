@@ -104,11 +104,16 @@ def result(request):
 
 INTAKE_KEY = "intake_chat"
 INTAKE_RESULT_KEY = "intake_result"
+INTAKE_DRAFT_KEY = "intake_draft"
+INTAKE_FAILURES_KEY = "intake_failures"
+# When the AI is busy the chat is kept so the learner can resend; after this many
+# failed sends in a row they get the short form instead.
+MAX_INTAKE_FAILURES = 2
 
 
 def _end_intake(request):
-    request.session.pop(INTAKE_KEY, None)
-    request.session.pop(INTAKE_RESULT_KEY, None)
+    for key in (INTAKE_KEY, INTAKE_RESULT_KEY, INTAKE_DRAFT_KEY, INTAKE_FAILURES_KEY):
+        request.session.pop(key, None)
 
 
 def _to_form(request, text):
@@ -137,9 +142,20 @@ def intake(request):
             if not reserve_intake(profile):
                 return _to_form(request, "You've planned with the AI guide enough for today, so here's the short form instead.")
             history = new_history()
-        history, result = take_turn(history, text, tracks)
-        if history is None:
-            return _to_form(request, "The AI guide is busy right now, so here's the short form instead.")
+        reply_history, result = take_turn(history, text, tracks)
+        if reply_history is None:
+            failures = request.session.get(INTAKE_FAILURES_KEY, 0) + 1
+            if failures >= MAX_INTAKE_FAILURES:
+                return _to_form(request, "The AI guide is busy right now, so here's the short form instead.")
+            # Keep the chat (and the intake already counted today) so a resend continues it.
+            request.session[INTAKE_KEY] = history
+            request.session[INTAKE_DRAFT_KEY] = text
+            request.session[INTAKE_FAILURES_KEY] = failures
+            messages.error(request, "The AI guide is busy right now. Wait a minute, then send your message again.")
+            return redirect("intake")
+        history = reply_history
+        request.session.pop(INTAKE_DRAFT_KEY, None)
+        request.session.pop(INTAKE_FAILURES_KEY, None)
         if result is None:
             request.session[INTAKE_KEY] = history
             return redirect("intake")
@@ -157,7 +173,12 @@ def intake(request):
     return render(
         request,
         "diagnose/intake.html",
-        {"history": history or new_history(), "started": history is not None, "max_length": MAX_MESSAGE_LENGTH},
+        {
+            "history": history or new_history(),
+            "started": history is not None,
+            "draft": request.session.get(INTAKE_DRAFT_KEY, ""),
+            "max_length": MAX_MESSAGE_LENGTH,
+        },
     )
 
 
